@@ -1,0 +1,26 @@
+<resources>
+    <string name="app_name">DataTransfer</string>
+    <string name="menu_show_log">顯示 Log</string>
+    <string name="menu_hide_log">顯示 File</string>
+    <string name="menu_wifi_connect">wifi</string>
+    <string name="menu_bluetooth_connect">bluetooth</string>
+    <string name="menu_wifi_direct_discover">搜索wifi</string>
+    <string name="system_msg_connect_wifi">Wifi訊號開啟中</string>
+    <string name="system_msg_discover_initiated">訊號連接開始</string>
+    <string name="system_msg_discover_failed">訊號連接失敗</string>
+    <string name="system_msg_cancel_discover">按返回鍵取消</string>
+    <string name="system_msg_discover_peers">搜索wifiP2p熱點</string>
+    <string name="system_msg_connect">連接</string>
+    <string name="system_msg_group_owner_yes">這裡是伺服端</string>
+    <string name="system_msg_group_owner_no">這裡是用戶端</string>
+    <string name="system_msg_group_owner_ip">伺服端的IP是: </string>
+
+    <string name="button_connect">連接</string>
+    <string name="button_disconnect">斷聯</string>
+
+    <string name="label_me">ME</string>
+    <string name="label_peers">PEERS</string>
+    <string name="empty_message">沒有設備，打開WiFi Direct並搜索設備。</string>
+    <string name="icon_no_device">沒有設備</string>
+    <string name="icon_no_device_status">未知</string>
+</resources>
