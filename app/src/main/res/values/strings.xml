@@ -11,12 +11,16 @@
     <string name="system_msg_cancel_discover">按返回鍵取消</string>
     <string name="system_msg_discover_peers">搜索wifiP2p熱點</string>
     <string name="system_msg_connect">連接</string>
+    <string name="system_msg_retry_connect">嘗試重新連接</string>
+    <string name="system_msg_restart_wifi_p2p">請重新開啟 Wifi P2P</string>
     <string name="system_msg_group_owner_yes">這裡是伺服端</string>
     <string name="system_msg_group_owner_no">這裡是用戶端</string>
     <string name="system_msg_group_owner_ip">伺服端的IP是: </string>
 
+
     <string name="button_connect">連接</string>
     <string name="button_disconnect">斷聯</string>
+    <string name="button_send">發信</string>
 
     <string name="label_me">ME</string>
     <string name="label_peers">PEERS</string>
