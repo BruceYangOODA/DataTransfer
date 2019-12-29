@@ -54,6 +54,8 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
                 wifiP2pManager.requestConnectionInfo(channel,deviceDetailFragment);
             }
             else{
+                //todo
+                //mainActivity.disconnect();
                 mainActivity.resetData();   //重置fragment畫面
             }
         }

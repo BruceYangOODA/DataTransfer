@@ -15,6 +15,8 @@ import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Array;
 import java.net.ServerSocket;
 import java.net.Socket;
+
+import static nor.zero.datatransfer.DeviceDetailFragment.etNickName;
 import static nor.zero.datatransfer.DeviceListFragment.*;
 
 public class WifiServerThread extends Thread {
@@ -65,8 +67,16 @@ public class WifiServerThread extends Thread {
                 System.arraycopy(buffer,length-Constants.CHECK_LENGTH,checkPact,0,Constants.CHECK_LENGTH);
                 String checkStr = new String(checkPact);
                 // 確認碼確認訊息是哪一種類型 DATA_TYPE[0]是文字訊息
-                if(checkStr.equals(Constants.DATA_TYPE[0]))
-                    readMessage(buffer,length);
+               // if(checkStr.equals(Constants.DATA_TYPE[0]))
+                 //   readMessage(buffer,length);
+                switch (checkStr){
+                    case Constants.DATA_TYPE_MESSAGE:
+                        readMessage(buffer,length);
+                        break;
+                    default:
+                        break;
+                }
+
 /*
                     try {
                         String str = "整合正能量整合正能量整合正能量整合正能量*#401!";
@@ -105,7 +115,6 @@ public class WifiServerThread extends Thread {
         }
         try {
             String msgName = new String(nameByte,0,trimZero);  //訊息的名字
-
             String msgContent = new String(msgByte);  //訊息的內容
             Message msg = handler.obtainMessage(Constants.DATA_CHAT);
             Bundle bundle = new Bundle();
@@ -113,6 +122,7 @@ public class WifiServerThread extends Thread {
             bundle.putString(Constants.CHAT_MSG_CONTENT,msgContent);
             msg.setData(bundle);
             handler.sendMessage(msg);   //傳給MainActivity 新增ChatFragment 內容
+            Log.v("aaa","讀到資料 "+msgContent);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -123,25 +133,25 @@ public class WifiServerThread extends Thread {
         int lengthChat = byteChat.length;
         // 不接受長文,超過900byte的不處理
         if(lengthChat<Constants.SENDER_LENGTH){
-            String chatName = getDevice().deviceName; //DeviceListFragment 取得本機的名字
+            String nickName = etNickName.getText().toString();
+            if(nickName.equals(""))
+                nickName = getDevice().deviceName; //DeviceListFragment 取得本機的名字
             int lengthName = Constants.CHAT_NAME_LENGTH;
             byte[] byteName = new byte[lengthName];
-            byte[] byteTemp = chatName.getBytes();
+            byte[] byteTemp = nickName.getBytes();
             System.arraycopy(byteTemp,0,byteName,0,byteTemp.length);
-            byte[] byteCheckCode = Constants.DATA_TYPE[0].getBytes(); //確認碼 文字訊息
+            byte[] byteCheckCode = Constants.DATA_TYPE_MESSAGE.getBytes(); //確認碼 文字訊息
             int lengthCheckCode = byteCheckCode.length;
             int totalLength = lengthName + lengthChat + lengthCheckCode; //組裝訊息的總長度 名字+內容+確認碼
             byte[] byteSend = new byte[totalLength];
             System.arraycopy(byteName,0,byteSend,0,lengthName);
             System.arraycopy(byteChat,0,byteSend,lengthName,lengthChat);
             System.arraycopy(byteCheckCode,0,byteSend,lengthName+lengthChat,lengthCheckCode);
-            String temp = null;
-
-            temp = new String(byteSend);
             DataOutputStream dos = new DataOutputStream(outputStream);
             try {
                 //dos.writeUTF(temp);
                 dos.write(byteSend);
+                dos.flush();
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -167,13 +177,11 @@ public class WifiServerThread extends Thread {
 
     public void cancel(){
         try {
-            socket.close();
-            serverSocket.close();
-            try {
-                this.finalize();
-            } catch (Throwable throwable) {
-                throwable.printStackTrace();
-            }
+            if(socket != null)
+                socket.close();
+            if(serverSocket != null)
+                serverSocket.close();
+            this.stop();
         } catch (IOException e) {
             e.printStackTrace();
         }

@@ -22,6 +22,7 @@
     <string name="button_disconnect">斷聯</string>
     <string name="button_send">發信</string>
 
+    <string name="tv_nickname">暱稱</string>
     <string name="label_me">ME</string>
     <string name="label_peers">PEERS</string>
     <string name="empty_message">沒有設備，打開WiFi Direct並搜索設備。</string>

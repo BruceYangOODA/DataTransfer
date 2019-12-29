@@ -9,7 +9,7 @@ public interface Constants {
     public static final int DATA_CHAT = 0;
 
     // 文字訊息,檔案傳輸開始,檔案傳輸結束
-    public static final String[] DATA_TYPE = {"*#401!","*#403!","*#404!"};
+    public static final String DATA_TYPE_MESSAGE = "*#401!";
     public static final int CHECK_LENGTH = 6;       //確認碼byte陣列長度
     public static final int READER_LENGTH = 990;    //接收資料暫存byte陣列長度
     public static final int SENDER_LENGTH = 900;    //送出資料暫存byte陣列長度 ,之後會跟確認碼等陣列合併

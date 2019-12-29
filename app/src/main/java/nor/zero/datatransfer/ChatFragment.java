@@ -22,6 +22,7 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import static nor.zero.datatransfer.DeviceListFragment.*;
+import static nor.zero.datatransfer.DeviceDetailFragment.*;
 
 public class ChatFragment extends Fragment {
 
@@ -43,9 +44,12 @@ public class ChatFragment extends Fragment {
             // 不是輸入空字串,就傳遞EditText 的內容,並清空EditText
             if(!chatMessage.equals("")){
                 //記錄在本機的ChatFragment
-                String deviceName = getDevice().deviceName; //DeviceListFragment 取得本機的名字
+                //DeviceDetailFragment 取得暱稱設定，如果未設定,預設為本機的名字
+                String nickName = etNickName.getText().toString();
+                if(nickName.equals(""))
+                    nickName = getDevice().deviceName; //DeviceListFragment 取得本機的名字
                 HashMap<String,String> addMessage = new HashMap<>();
-                addMessage.put(Constants.CHAT_MSG_NAME,deviceName);
+                addMessage.put(Constants.CHAT_MSG_NAME,nickName);
                 addMessage.put(Constants.CHAT_MSG_CONTENT,chatMessage);
                 addChatContent(addMessage);
                 if(mainActivity.wifiServerThread != null){

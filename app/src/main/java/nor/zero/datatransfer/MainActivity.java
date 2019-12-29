@@ -37,7 +37,7 @@ public class MainActivity extends AppCompatActivity implements WifiP2pManager.Ch
         DeviceListFragment.DeviceActionListener {
 
     private boolean mLogShown;
-    private WifiManager wifiManager;
+   // private WifiManager wifiManager;
     private final IntentFilter intentFilter = new IntentFilter();
     private WifiP2pManager wifiP2pManager;
     private WifiP2pManager.Channel channel;
@@ -62,7 +62,7 @@ public class MainActivity extends AppCompatActivity implements WifiP2pManager.Ch
     static String hostAddress="";
 
    // private TextView tvP2PListClick,tvP2PDetailClick;
-    private static int selectTab = 0;   //目前顯示內容是哪一個Fragment
+    private static int selectTab = 1;   //目前顯示內容是哪一個Fragment
 
 
 
@@ -122,10 +122,20 @@ public class MainActivity extends AppCompatActivity implements WifiP2pManager.Ch
                 return true;
             // 開啟系統wifi服務
             case R.id.menu_wifi_connect:
+                if(!isWifiP2pEnabled){
+                    Intent intent = new Intent();
+                    ComponentName componentName = new ComponentName("com.android.settings",
+                            "com.android.settings.wifi.WifiSettings");
+                    intent.setComponent(componentName);
+                    startActivity(intent);
+                    return true;
+                }
+                /*
                 if(!wifiManager.isWifiEnabled()){
+
                     wifiManager.setWifiEnabled(true);
                     Toast.makeText(this,R.string.system_msg_connect_wifi,Toast.LENGTH_LONG).show();
-                }
+                }*/
                 /*  //跳到wifi系統設定
                 Intent intent = new Intent();
                 ComponentName componentName = new ComponentName("com.android.settings",
@@ -159,10 +169,11 @@ public class MainActivity extends AppCompatActivity implements WifiP2pManager.Ch
                         }
                     });
                 }
+                /*
                 else {
                     wifiManager.setWifiEnabled(true);
                     Toast.makeText(this,R.string.system_msg_connect_wifi,Toast.LENGTH_LONG).show();
-                }
+                }*/
                 return true;
         }
         return super.onOptionsItemSelected(item);
@@ -249,7 +260,7 @@ public class MainActivity extends AppCompatActivity implements WifiP2pManager.Ch
         transaction.add(R.id.flMainContent,chatFragment,Constants.CHAT_FRAGMENT);
         transaction.add(R.id.flMainContent,deviceListFragment,Constants.DEVICE_LIST_FRAGMENT);
         transaction.add(R.id.flMainContent,deviceDetailFragment,Constants.DEVICE_DETAIL_FRAGMENT);
-        transaction.hide(deviceListFragment);
+        transaction.hide(chatFragment);
         transaction.hide(deviceDetailFragment);
         transaction.commit();
         TextView tvChatClick = findViewById(R.id.tvChatClick);
@@ -259,12 +270,11 @@ public class MainActivity extends AppCompatActivity implements WifiP2pManager.Ch
         tvP2PListClick.setOnClickListener(tvClickListener);
         tvP2PDetailClick.setOnClickListener(tvClickListener);
 
-
         intentFilter.addAction(WifiP2pManager.WIFI_P2P_STATE_CHANGED_ACTION);//狀態的改變
         intentFilter.addAction(WifiP2pManager.WIFI_P2P_PEERS_CHANGED_ACTION);//搜到列表改變
         intentFilter.addAction(WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION);//鏈接狀態是否改變
         intentFilter.addAction(WifiP2pManager.WIFI_P2P_THIS_DEVICE_CHANGED_ACTION);//設備的詳細信息改變
-        wifiManager = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+       // wifiManager = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
         wifiP2pManager = (WifiP2pManager) getApplicationContext().getSystemService(Context.WIFI_P2P_SERVICE);
         channel = wifiP2pManager.initialize(this,getMainLooper(),null);
 
@@ -318,19 +328,27 @@ public class MainActivity extends AppCompatActivity implements WifiP2pManager.Ch
     public void connecting(WifiP2pInfo wifiP2pInfo){
         hostAddress = wifiP2pInfo.groupOwnerAddress.getHostAddress();
         deviceListFragment.getView().findViewById(R.id.tvNoDevice).setVisibility(View.INVISIBLE);
-        //如果本機是伺服端，新建伺服器執行緒
+        //如果本機是伺服端，新建伺服器執行緒 或沿用上一個Thread
         if(wifiP2pInfo.groupFormed && wifiP2pInfo.isGroupOwner){
-            if(wifiServerThread != null)
+            if(wifiServerThread != null){
                 wifiServerThread.cancel();
-            wifiServerThread = new WifiServerThread(this,Constants.WIFI_PORT);
-            wifiServerThread.start();
+                wifiServerThread.start();
+            }
+            else{
+                wifiServerThread = new WifiServerThread(this,Constants.WIFI_PORT);
+                wifiServerThread.start();
+            }
         }
-        //如果本機是用戶端，新建用戶端執行緒
+        //如果本機是用戶端，新建用戶端執行緒 或沿用上一個Thread
         else if(wifiP2pInfo.groupFormed){
-            if(wifiClientThread != null)
-                wifiServerThread.cancel();
-            wifiClientThread = new WifiClientThread(this);
-            wifiClientThread.start();
+            if(wifiClientThread != null){
+                wifiClientThread.cancel();
+                wifiClientThread.start();
+            }
+            else {
+                wifiClientThread = new WifiClientThread(this);
+                wifiClientThread.start();
+            }
         }
 
 

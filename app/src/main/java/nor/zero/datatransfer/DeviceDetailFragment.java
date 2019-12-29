@@ -12,6 +12,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.TextView;
 
 
@@ -25,6 +26,7 @@ public class DeviceDetailFragment extends Fragment implements WifiP2pManager.Con
     private View mContentView;
     private ProgressDialog progressDialog = null;
     private WifiP2pInfo wifiP2pInfo;
+    static EditText etNickName;
 
 
 
@@ -98,6 +100,7 @@ public class DeviceDetailFragment extends Fragment implements WifiP2pManager.Con
     private void init(){
         ((Button)mContentView.findViewById(R.id.btn_connect)).setOnClickListener(btnClickListener);
         ((Button)mContentView.findViewById(R.id.btn_disconnect)).setOnClickListener(btnClickListener);
+        etNickName = mContentView.findViewById(R.id.etNickName);
     }
     //從MainActivity傳遞device數據更新ui
     public void showDetails(WifiP2pDevice device) {
