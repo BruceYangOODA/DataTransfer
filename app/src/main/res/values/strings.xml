@@ -16,11 +16,20 @@
     <string name="system_msg_group_owner_yes">這裡是伺服端</string>
     <string name="system_msg_group_owner_no">這裡是用戶端</string>
     <string name="system_msg_group_owner_ip">伺服端的IP是: </string>
+    <string name="sys_msg_file_type_directory">資料夾</string>
+    <string name="sys_msg_file_type_file">檔案</string>
+    <string name="sys_msg_receive">接收</string>
+    <string name="sys_msg_file_size">檔案大小</string>
 
+    <string name="sys_msg_trans_file">傳輸檔案</string>
+    <string name="sys_msg_transfer">傳輸</string>
 
     <string name="button_connect">連接</string>
     <string name="button_disconnect">斷聯</string>
     <string name="button_send">發信</string>
+    <string name="btn_backward">回上一層</string>
+    <string name="btn_yes">確定</string>
+    <string name="btn_no">否定</string>
 
     <string name="tv_nickname">暱稱</string>
     <string name="label_me">ME</string>

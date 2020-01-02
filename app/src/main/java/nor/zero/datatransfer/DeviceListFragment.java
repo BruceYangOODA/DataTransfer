@@ -49,6 +49,7 @@ public class DeviceListFragment extends ListFragment implements WifiP2pManager.P
     // WifiP2pManager.PeerListListener 內建方法
     @Override
     public void onPeersAvailable(WifiP2pDeviceList peerList) {
+        //收到回傳peerList 收掉progressDialog
         if (progressDialog != null && progressDialog.isShowing()) {
             progressDialog.dismiss();
         }
