@@ -63,12 +63,15 @@ public class WifiClientThread extends Thread {
                 e.printStackTrace();
             }
             // 傳進來的是有效訊息
-            if(length>=Constants.CHECK_CODE_LENGTH)
+            if(length>=DATA_CHECK_LENGTH + CHECK_CODE_LENGTH)
             {
-                byte[] checkPact = new byte[Constants.CHECK_CODE_LENGTH];
+                byte[] checkPact = new byte[CHECK_CODE_LENGTH];
                 // 讀進來的資料後6個byte是確認碼
-                System.arraycopy(buffer,length-Constants.CHECK_CODE_LENGTH,checkPact,0,Constants.CHECK_CODE_LENGTH);
+                System.arraycopy(buffer,length-CHECK_CODE_LENGTH,checkPact,0,CHECK_CODE_LENGTH);
                 String checkStr = new String(checkPact);
+                Log.v("aaa","checkPact: "+checkStr);
+                Log.v("aaa","length: "+length);
+                Log.v("aaa","buffer: "+buffer.length);
                 // 確認碼確認訊息是哪一種類型 DATA_TYPE[0]是文字訊息
                 //if(checkStr.equals(Constants.DATA_TYPE_MESSAGE))
              //       readMessage(buffer,length);
@@ -110,11 +113,11 @@ public class WifiClientThread extends Thread {
     }
 
     private void readMessage(byte[] buffer,int length){
-        byte[] nameByte = new byte[Constants.CHAT_NAME_LENGTH];
-        int msgLength = length-Constants.CHAT_NAME_LENGTH-Constants.CHECK_CODE_LENGTH;
+        byte[] nameByte = new byte[DATA_CHECK_LENGTH];
+        int msgLength = length - DATA_CHECK_LENGTH - CHECK_CODE_LENGTH;
         byte[] msgByte = new byte[msgLength];
-        System.arraycopy(buffer,0,nameByte,0,Constants.CHAT_NAME_LENGTH);   //名字byte陣列複製
-        System.arraycopy(buffer,Constants.CHAT_NAME_LENGTH,msgByte,0,msgLength);    //內容byte陣列複製
+        System.arraycopy(buffer,0,nameByte,0,DATA_CHECK_LENGTH);   //名字byte陣列複製
+        System.arraycopy(buffer,DATA_CHECK_LENGTH,msgByte,0,msgLength);    //內容byte陣列複製
 
         // 去除名字陣列後方預留空間的空byte
         int trimZero = 0;
@@ -146,7 +149,7 @@ public class WifiClientThread extends Thread {
             String nickName = etNickName.getText().toString();
             if(nickName.equals(""))
                 nickName = getDevice().deviceName; //DeviceListFragment 取得本機的名字
-            int lengthName = Constants.CHAT_NAME_LENGTH;
+            int lengthName = DATA_CHECK_LENGTH;
             byte[] byteName = new byte[lengthName];
             byte[] byteTemp = nickName.getBytes();
             System.arraycopy(byteTemp,0,byteName,0,byteTemp.length);
@@ -195,7 +198,6 @@ public class WifiClientThread extends Thread {
         int length =-1;
         byte[] byteBuffer = new byte[SENDER_LENGTH];
         byte[] byteCheckCode = DATA_TRANS_CONTINUED.getBytes();
-        int lengthCheckCode = CHECK_CODE_LENGTH;
         byte[] byteSend;
         try {
             fileInputStream = new FileInputStream((filePath+"/"+fileName));
@@ -209,17 +211,30 @@ public class WifiClientThread extends Thread {
             startTransfer(fileName,fileTotalLength);
             try{
                 while ((length=fileInputStream.read(byteBuffer))!= -1){
-                    byteSend = new byte[length+lengthCheckCode];
-                    System.arraycopy(byteCheckCode,0,byteSend,0,lengthCheckCode);
-                    System.arraycopy(byteBuffer,0,byteSend,lengthCheckCode,length);
+                    // 前面DATA_CHECK_LENGTH 留白防止檔案最後byte[] 不夠大，被接收方判定是無效資料
+                    sleep(50);
+                    byteSend = new byte[DATA_CHECK_LENGTH+length+CHECK_CODE_LENGTH];
+                    System.arraycopy(byteBuffer,0,byteSend,DATA_CHECK_LENGTH,length);
+                    System.arraycopy(byteCheckCode,0,byteSend,
+                            DATA_CHECK_LENGTH+length,CHECK_CODE_LENGTH);
+
+                    //todo
+                    byte[] byteCheckPac = new byte[6];
+                    System.arraycopy(byteSend,byteSend.length-6,byteCheckPac,0,6);
+                    String check = new String(byteCheckCode);
+                    Log.v("aaa","checkPack " +check);
+
                     outputStream.write(byteSend);
-                    outputStream.flush();
+                    Log.v("aaa","傳檔大小"+byteSend.length);
+                   // outputStream.flush();
                 }
                 // 通知對方機器傳檔結束
-                byteSend = DATA_TRANS_END.getBytes();
+                byteSend = new byte[DATA_CHECK_LENGTH+CHECK_CODE_LENGTH];
+                byteCheckCode = DATA_TRANS_END.getBytes();
+                System.arraycopy(byteCheckCode,0,byteSend,DATA_CHECK_LENGTH,CHECK_CODE_LENGTH);
                 outputStream.write(byteSend);
                 Log.v("aaa","檔案傳送結束");
-                outputStream.flush();
+               // outputStream.flush();
             }
             catch (Exception e){
                 Log.v("aaa","錯誤"+e.getMessage());
@@ -229,8 +244,8 @@ public class WifiClientThread extends Thread {
     }
 
     //先傳出檔案檔名與檔案長度
-    private void startTransfer(String fileName,int fileTotalLength){
-        byte[] byteTotalLength = new byte[CHAT_NAME_LENGTH];
+    private synchronized void startTransfer(String fileName,int fileTotalLength){
+        byte[] byteTotalLength = new byte[DATA_CHECK_LENGTH];
         byte[] temp = intToByteArray(fileTotalLength);
         System.arraycopy(temp,0,byteTotalLength,0,temp.length);
         byte[] byteFileName = fileName.getBytes();
@@ -247,7 +262,13 @@ public class WifiClientThread extends Thread {
             outputStream.write(byteSend);
             Log.v("aaa","發送length " + fileTotalLength);
             Log.v("aaa","發送fileName "+ fileName);
-            outputStream.flush();
+           // outputStream.flush();
+
+            //todo
+            byte[] byteCheckPac = new byte[6];
+            System.arraycopy(byteSend,byteSend.length-6,byteCheckPac,0,6);
+            String check = new String(byteCheckCode);
+            Log.v("aaa","checkPack " +check);
         }
         catch (Exception e){}
 
@@ -280,7 +301,7 @@ public class WifiClientThread extends Thread {
         return v0+v1+v2+v3;
     }
 
-    private void readFileDetail(byte[] buffer,int length){
+    private synchronized void readFileDetail(byte[] buffer,int length){
         byte[] byteLength = new byte[4];
         System.arraycopy(buffer,0,byteLength,0,byteLength.length);
         // 接收到的byte[]轉int值
@@ -309,9 +330,11 @@ public class WifiClientThread extends Thread {
         }
     }
 
-    private void receiveData(byte[] buffer,int length){
+    private synchronized void receiveData(byte[] buffer,int length){
         if(byteArrayOutputStream!= null){   //檔案接收的容器存在
-            byteArrayOutputStream.write(buffer,0,length);
+            // 前面30byte跟後面6byte 是額外的資料
+            byteArrayOutputStream.write(buffer,DATA_CHECK_LENGTH,
+                    length-DATA_CHECK_LENGTH-CHECK_CODE_LENGTH);
             Log.v("aaa","byteArrayOutputStream"+byteArrayOutputStream.size());
         }
     }
@@ -330,7 +353,7 @@ public class WifiClientThread extends Thread {
     private void createFile(){
         // 確認檔案大小,與readFileDetail() 讀到的大小資料相等,沒有資料MISS
         Log.v("aaa","收到通知傳輸結束");
-        if(byteArrayOutputStream.size()==fileTotalLengthCheck){
+        if(byteArrayOutputStream!= null && byteArrayOutputStream.size()==fileTotalLengthCheck){
             // 通知將byteArrayOutputStream 轉成檔案
             mainActivity.handler.sendEmptyMessage(DATA_CREATE_FILE_CLIENT);
             fileTotalLengthCheck = 0;

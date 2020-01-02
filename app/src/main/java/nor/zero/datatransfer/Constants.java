@@ -23,7 +23,7 @@ public interface Constants {
     public static final int CHECK_CODE_LENGTH = 6;       //確認碼byte陣列長度
     public static final int READER_LENGTH = 990;    //接收資料暫存byte陣列長度
     public static final int SENDER_LENGTH = 900;    //送出資料暫存byte陣列長度 ,之後會跟確認碼等陣列合併
-    public static final int CHAT_NAME_LENGTH = 30;  //存放CHAT_DATA 名字的部分 最大長度是UTF-8編碼10個中文字
+    //public static final int CHAT_NAME_LENGTH = 30;  //存放CHAT_DATA 名字的部分 最大長度是UTF-8編碼10個中文字
     public static final int DATA_CHECK_LENGTH = 30;  //存放CHAT_DATA 名字的部分 最大長度是UTF-8編碼10個中文字
 
     public static final String CHAT_MSG_NAME = "msgName";
