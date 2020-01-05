@@ -22,6 +22,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -88,14 +89,9 @@ public class FileListFragment extends Fragment {
                             .setPositiveButton(getString(R.string.btn_yes), new DialogInterface.OnClickListener() {
                                 @Override
                                 public void onClick(DialogInterface dialog, int which) {
-                                    // 選擇用伺服端 或 用戶端 執行緒傳資料
-                                    if(mainActivity.wifiP2pInfo != null && mainActivity.wifiP2pInfo.isGroupOwner){
-                                        mainActivity.wifiServerThread.transfer(FILE_PATH,fileName);
-                                    }
-                                    else if (mainActivity.wifiP2pInfo != null)
-                                    {
-                                        mainActivity.wifiClientThread.transfer(FILE_PATH,fileName);;
-                                    }
+                                    dialog.dismiss();
+                                        mainActivity.dataTransfer(FILE_PATH,fileName);
+
                                 }
                             })
                             .setNegativeButton(getString(R.string.btn_no),null)

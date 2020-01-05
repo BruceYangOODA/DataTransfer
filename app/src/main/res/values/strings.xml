@@ -19,6 +19,8 @@
     <string name="sys_msg_file_type_directory">資料夾</string>
     <string name="sys_msg_file_type_file">檔案</string>
     <string name="sys_msg_receive">接收</string>
+    <string name="sys_msg_receive_fail">接收檔案失敗</string>
+    <string name="sys_msg_receive_success">接收檔案成功</string>
     <string name="sys_msg_file_size">檔案大小</string>
 
     <string name="sys_msg_trans_file">傳輸檔案</string>

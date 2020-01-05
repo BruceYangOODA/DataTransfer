@@ -33,6 +33,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.HashMap;
 import java.util.Map;
@@ -64,12 +65,13 @@ public class MainActivity extends AppCompatActivity implements WifiP2pManager.Ch
     static DeviceDetailFragment deviceDetailFragment;
     public WifiServerThread wifiServerThread  = null;
     public WifiClientThread wifiClientThread = null ;
-    public WifiConnectedThread wifiConnectedThread ;
+    public WifiConnectedThread wifiConnectedThread = null;
     static String hostAddress="";
     WifiP2pInfo wifiP2pInfo = null;
     private String fileName="";
+    ServerSocket serverSocket;
 
-   // private TextView tvP2PListClick,tvP2PDetailClick;
+    private TextView tvChatClick,tvP2PListClick,tvP2PDetailClick;
     private static int selectTab = 1;   //目前顯示內容是哪一個Fragment
 
 
@@ -166,6 +168,7 @@ public class MainActivity extends AppCompatActivity implements WifiP2pManager.Ch
                     transaction.show(deviceListFragment);
                     transaction.commit();
                     selectTab = 1;
+                    changeTabColor(selectTab);
                     //搜尋其他手機wifi P2P訊號
                     deviceListFragment.onInitiateDiscovery();
                     wifiP2pManager.discoverPeers(channel, new WifiP2pManager.ActionListener() {
@@ -210,6 +213,7 @@ public class MainActivity extends AppCompatActivity implements WifiP2pManager.Ch
                         transaction.show(chatFragment);
                         transaction.commit();
                         selectTab = 0;
+                        changeTabColor(selectTab);
                     }
                     return;
 
@@ -219,6 +223,7 @@ public class MainActivity extends AppCompatActivity implements WifiP2pManager.Ch
                         transaction.show(deviceListFragment);
                         transaction.commit();
                         selectTab =1;
+                        changeTabColor(selectTab);
                     }
 
                     return;
@@ -228,13 +233,36 @@ public class MainActivity extends AppCompatActivity implements WifiP2pManager.Ch
                         transaction.show(deviceDetailFragment);
                         transaction.commit();
                         selectTab =2;
+                        changeTabColor(selectTab);
                     }
                     return;
             }
         }
     };
 
-    final Handler handler = new Handler(){
+    private void changeTabColor(int select){
+        switch (select){
+            case 0:
+                tvChatClick.setBackgroundColor(getResources().getColor(R.color.Aquamarine));
+                tvP2PListClick.setBackgroundColor(getResources().getColor(R.color.MediumAquamarine));
+                tvP2PDetailClick.setBackgroundColor(getResources().getColor(R.color.MediumAquamarine));
+                break;
+            case 1:
+                tvChatClick.setBackgroundColor(getResources().getColor(R.color.MediumAquamarine));
+                tvP2PListClick.setBackgroundColor(getResources().getColor(R.color.Aquamarine));
+                tvP2PDetailClick.setBackgroundColor(getResources().getColor(R.color.MediumAquamarine));
+                break;
+            case 2:
+                tvChatClick.setBackgroundColor(getResources().getColor(R.color.MediumAquamarine));
+                tvP2PListClick.setBackgroundColor(getResources().getColor(R.color.MediumAquamarine));
+                tvP2PDetailClick.setBackgroundColor(getResources().getColor(R.color.Aquamarine));
+                break;
+                default:
+                    break;
+        }
+    }
+
+    Handler handler = new Handler(){
         @Override
         public void handleMessage(Message msg) {
             switch (msg.what){
@@ -251,17 +279,30 @@ public class MainActivity extends AppCompatActivity implements WifiP2pManager.Ch
                     // 從另一台機器 接受到檔名與檔案大小
                     String tempFileName = msg.getData().getString(DATA_MSG_FILE_NAME);
                     String fileSize = msg.getData().getString(DATA_MSG_FILE_SIZE);
+                    Log.v("aaa","收到檔名: "+fileName);
+                    Log.v("aaa","收到大小: "+fileSize);
                     fileName = tempFileName;
                     Toast.makeText(getBaseContext(),getString(R.string.sys_msg_receive)+tempFileName+"\n"+
                             getString(R.string.sys_msg_file_size)+fileSize,Toast.LENGTH_SHORT).show();
                     break;
+                case DATA_RECIVE_FAIL:
+                    Toast.makeText(getBaseContext(),getString(R.string.sys_msg_receive_fail),Toast.LENGTH_SHORT).show();
+                    break;
+                case DATA_CREATE_FILE:
+                    createFile();
+                    Toast.makeText(getBaseContext(),getString(R.string.sys_msg_receive_success),Toast.LENGTH_SHORT).show();
+                    break;
                 case DATA_CREATE_FILE_SERVER:
-                    createFile(wifiServerThread.byteArrayOutputStream);
-                    wifiServerThread.byteArrayOutputStream = null; //接收檔案容器歸零
+                    // 停用wifiServerThread ,所以這個沒有在用
+                   // createFile(wifiServerThread.byteArrayOutputStream);
+                   // wifiServerThread.byteArrayOutputStream = null; //接收檔案容器歸零
+                    Toast.makeText(getBaseContext(),getString(R.string.sys_msg_receive_success),Toast.LENGTH_SHORT).show();
                     break;
                 case DATA_CREATE_FILE_CLIENT:
-                    createFile(wifiClientThread.byteArrayOutputStream);
-                    wifiClientThread.byteArrayOutputStream = null;  //接收檔案容器歸零
+                    // 停用wifiClientThread ,所以這個沒有在用
+                   // createFile(wifiClientThread.byteArrayOutputStream);
+                   // wifiClientThread.byteArrayOutputStream = null;  //接收檔案容器歸零
+                    Toast.makeText(getBaseContext(),getString(R.string.sys_msg_receive_success),Toast.LENGTH_SHORT).show();
                     break;
                     default:
                         break;
@@ -269,20 +310,36 @@ public class MainActivity extends AppCompatActivity implements WifiP2pManager.Ch
         }
     };
     // 將接收到的byte[] 轉為檔案
-    private void createFile(ByteArrayOutputStream dataStream){
+    private void createFile(){
         // 有接收到檔名,可以建立檔案名稱
-        if( !fileName.equals("")){
-            String filePath = DOWNLOAD_PATH+"/"+fileName;
-            FileOutputStream fileOutputStream;
-            try {
-                fileOutputStream = new FileOutputStream(filePath);
-                byte[] dataByteStream = dataStream.toByteArray();
-                fileOutputStream.write(dataByteStream);
-                fileOutputStream.close();
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+        String filePath = DOWNLOAD_PATH+"/"+fileName;
+        Log.v("aaa","創建檔案: "+filePath);
+        FileOutputStream fileOutputStream;
+        try {
+            fileOutputStream = new FileOutputStream(filePath);
+            byte[] dataByteStream = wifiConnectedThread.byteArrayOutputStream.toByteArray();
+            fileOutputStream.write(dataByteStream);
+            fileOutputStream.close();
+            Log.v("aaa","創建檔案成功");
+            fileName=""; //檔案名稱歸零 ,準備下一次創建
+
+        } catch (Exception e) {
+            e.printStackTrace();
         }
+        wifiConnectedThread.byteArrayOutputStream = null;  //接收檔案容器歸零
+    }
+
+    void dataTransfer(String filePath,String fileName){
+        if(wifiConnectedThread!= null)
+            wifiConnectedThread.transfer(filePath,fileName);
+        /*
+        if(wifiP2pInfo != null && wifiP2pInfo.isGroupOwner){
+            wifiServerThread.transfer(filePath,fileName);
+        }
+        else if (wifiP2pInfo != null)
+        {
+            wifiClientThread.transfer(filePath,fileName);
+        }*/
     }
 
     private void hideFragments(FragmentTransaction transaction){
@@ -317,9 +374,9 @@ public class MainActivity extends AppCompatActivity implements WifiP2pManager.Ch
         transaction.hide(chatFragment);
         transaction.hide(deviceDetailFragment);
         transaction.commit();
-        TextView tvChatClick = findViewById(R.id.tvChatClick);
-        TextView tvP2PListClick = findViewById(R.id.tvP2PListClick);
-        TextView tvP2PDetailClick = findViewById(R.id.tvP2PDetailClick);
+        tvChatClick = findViewById(R.id.tvChatClick);
+        tvP2PListClick = findViewById(R.id.tvP2PListClick);
+        tvP2PDetailClick = findViewById(R.id.tvP2PDetailClick);
         tvChatClick.setOnClickListener(tvClickListener);
         tvP2PListClick.setOnClickListener(tvClickListener);
         tvP2PDetailClick.setOnClickListener(tvClickListener);
@@ -347,6 +404,7 @@ public class MainActivity extends AppCompatActivity implements WifiP2pManager.Ch
         transaction.show(deviceDetailFragment);
         transaction.commit();
         selectTab = 2;
+        changeTabColor(selectTab);
     }
 
     public void wifiSendMessage(String chatMessage){}
@@ -371,12 +429,6 @@ public class MainActivity extends AppCompatActivity implements WifiP2pManager.Ch
         });
     }
 
-    public void wifiConnected(Socket socket){
-        if(wifiConnectedThread != null)
-            wifiConnectedThread.cancel();
-        wifiConnectedThread = new WifiConnectedThread(this,socket);
-        wifiConnectedThread.start();
-    }
 
     @Override
     public void connecting(WifiP2pInfo wifiP2pInfo){
@@ -390,8 +442,36 @@ public class MainActivity extends AppCompatActivity implements WifiP2pManager.Ch
                 //wifiServerThread.start();
             }
             else{
-                wifiServerThread = new WifiServerThread(this,Constants.WIFI_PORT);
-                wifiServerThread.start();
+                //建立P2P熱點連接後,只會只用到socket物件,因此捨棄Server,將socket物件傳給ConnectedThread監聽資料傳遞
+                //wifiServerThread = new WifiServerThread(this,Constants.WIFI_PORT);
+                //wifiServerThread.start();
+                new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        try{
+                            serverSocket = new ServerSocket(WIFI_PORT);
+                            Socket socket = null;
+                            Boolean isConnecting = true;
+                            while (isConnecting){
+                                try{
+                                    socket = serverSocket.accept();
+                                    if(socket != null){
+                                        isConnecting = false;
+                                        wifiConnectedThread = new WifiConnectedThread(handler,socket);
+                                        wifiConnectedThread.start();
+                                        try {
+                                            this.finalize();
+                                        } catch (Throwable throwable) {
+                                            throwable.printStackTrace();
+                                        }
+
+                                    }
+                                }catch (Exception e){Log.v("aaa","socket連接失敗");}
+                            }
+                        }
+                        catch (Exception e){    Log.v("aaa","socket連接失敗");  }
+                    }
+                }).start();
             }
         }
         //如果本機是用戶端，新建用戶端執行緒 或沿用上一個Thread
@@ -400,8 +480,34 @@ public class MainActivity extends AppCompatActivity implements WifiP2pManager.Ch
                // wifiClientThread.start();
             }
             else {
-                wifiClientThread = new WifiClientThread(this);
-                wifiClientThread.start();
+               // wifiClientThread = new WifiClientThread(this);
+               // wifiClientThread.start();
+                new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        try{
+                            Socket socket = null;
+                            Boolean isConnecting = true;
+                            while (isConnecting){
+                                try{
+                                    socket = new Socket(hostAddress,WIFI_PORT);
+                                    if(socket != null){
+                                        isConnecting = false;
+                                        wifiConnectedThread = new WifiConnectedThread(handler,socket);
+                                        wifiConnectedThread.start();
+                                        try {
+                                            this.finalize();
+                                        } catch (Throwable throwable) {
+                                            throwable.printStackTrace();
+                                        }
+
+                                    }
+                                }catch (Exception e){Log.v("aaa","socket連接失敗");}
+                            }
+                        }
+                        catch (Exception e){    Log.v("aaa","socket連接失敗");  }
+                    }
+                }).start();
             }
         }
 
@@ -453,5 +559,10 @@ public class MainActivity extends AppCompatActivity implements WifiP2pManager.Ch
         else {
             Toast.makeText(this,R.string.system_msg_restart_wifi_p2p,Toast.LENGTH_SHORT).show();
         }
+    }
+
+    public void write(String nickName,String chatMessage) {
+        if(wifiConnectedThread != null)
+            wifiConnectedThread.write(nickName,chatMessage);
     }
 }
