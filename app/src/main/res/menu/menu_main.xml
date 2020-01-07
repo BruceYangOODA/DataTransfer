@@ -9,10 +9,19 @@
         android:icon="@drawable/ic_wifi"
         android:title="@string/menu_wifi_connect"
         app:showAsAction="always"/>
-    <item android:id="@+id/menu_bluetooth_connect"
+    <item android:id="@+id/menu_bluetooth_service"
         android:icon="@drawable/ic_bluetooth"
         android:title="@string/menu_bluetooth_connect"
         app:showAsAction="always"/>
     <item android:id="@+id/menu_wifi_direct_discover"
-        android:title="@string/menu_wifi_direct_discover"/>
+        android:title="@string/menu_wifi_direct_discover"
+        app:showAsAction="never"/>
+    <item
+        android:id="@+id/menu_bluetooth_connect"
+        android:title="@string/menu_bluetooth_connect"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/menu_bluetooth_discoverable"
+        android:title="@string/menu_bluetooth_discoverable"
+        app:showAsAction="never"/>
 </menu>

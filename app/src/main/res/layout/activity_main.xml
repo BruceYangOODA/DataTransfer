@@ -33,10 +33,11 @@
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:orientation="vertical">
-                <TextView
+                <FrameLayout
+                    android:id="@+id/flBluetoothList"
                     android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:text="@string/menu_show_log"/>
+                    android:layout_height="match_parent"/>
+
             </LinearLayout>
         </ScrollView>
 

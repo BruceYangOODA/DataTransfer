@@ -86,15 +86,17 @@ public class FileListFragment extends Fragment {
                     builder.setTitle(getString(R.string.sys_msg_trans_file))
                             .setMessage(getString(R.string.sys_msg_transfer) +" "+ fileName + " \n"+fileLength)
                             .setCancelable(false)
-                            .setPositiveButton(getString(R.string.btn_yes), new DialogInterface.OnClickListener() {
+                            .setPositiveButton(getString(R.string.yes), new DialogInterface.OnClickListener() {
                                 @Override
                                 public void onClick(DialogInterface dialog, int which) {
-                                    dialog.dismiss();
-                                        mainActivity.dataTransfer(FILE_PATH,fileName);
+                                    synchronized (this) {
+                                        dialog.dismiss();
+                                        mainActivity.transfer(FILE_PATH, fileName);
+                                    }
 
                                 }
                             })
-                            .setNegativeButton(getString(R.string.btn_no),null)
+                            .setNegativeButton(getString(R.string.no),null)
                             .show();
                 }
 

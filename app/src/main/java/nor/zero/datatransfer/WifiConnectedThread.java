@@ -65,6 +65,7 @@ public class WifiConnectedThread extends Thread {
                 switch (checkCode){
                     case DATA_TYPE_MESSAGE:
                         readMessage(buffer,length);
+                        break;
                     case DATA_TRANS_START:
                         readFileDetail(buffer,length);
                         break;

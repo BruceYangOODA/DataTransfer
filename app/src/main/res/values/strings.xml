@@ -1,15 +1,19 @@
 <resources>
-    <string name="app_name">DataTransfer</string>
-    <string name="menu_show_log">顯示 Log</string>
-    <string name="menu_hide_log">顯示 File</string>
+    <string name="app_name">DataTrans</string>
+    <string name="menu_show_bluetooth">顯示藍芽</string>
+    <string name="menu_show_file">顯示File</string>
     <string name="menu_wifi_connect">wifi</string>
-    <string name="menu_bluetooth_connect">bluetooth</string>
+    <string name="menu_bluetooth_service">bluetooth</string>
+    <string name="menu_bluetooth_connect">連接藍芽裝置</string>
+    <string name="menu_bluetooth_discoverable">開放藍芽搜索</string>
     <string name="menu_wifi_direct_discover">搜索wifi</string>
     <string name="system_msg_connect_wifi">Wifi訊號開啟中</string>
     <string name="system_msg_discover_initiated">訊號連接開始</string>
     <string name="system_msg_discover_failed">訊號連接失敗</string>
     <string name="system_msg_cancel_discover">按返回鍵取消</string>
     <string name="system_msg_discover_peers">搜索wifiP2p熱點</string>
+    <string name="system_msg_discover_bluetooth_device">搜索藍芽裝置訊號</string>
+    <string name="system_msg_discover_pause">中止搜尋訊號</string>
     <string name="system_msg_connect">連接</string>
     <string name="system_msg_retry_connect">嘗試重新連接</string>
     <string name="system_msg_restart_wifi_p2p">請重新開啟 Wifi P2P</string>
@@ -22,18 +26,33 @@
     <string name="sys_msg_receive_fail">接收檔案失敗</string>
     <string name="sys_msg_receive_success">接收檔案成功</string>
     <string name="sys_msg_file_size">檔案大小</string>
+    <string name="sys_msg_not_support_bluetooth">系統不支援藍芽</string>
 
     <string name="sys_msg_trans_file">傳輸檔案</string>
     <string name="sys_msg_transfer">傳輸</string>
+    <string name="dialog_msg_system_setting">變更系統設定</string>
+    <string name="dialog_msg_enable_bluetooth">啟動藍芽服務</string>
+    <string name="dialog_msg_disable_bluetooth">關閉藍芽服務</string>
+    <string name="dialog_msg_enable_wifi">啟動無線網路服務</string>
+    <string name="dialog_msg_disable_wifi">關閉無線網路服務</string>
 
     <string name="button_connect">連接</string>
     <string name="button_disconnect">斷聯</string>
     <string name="button_send">發信</string>
+    <string name="btn_scan_bluetooth">搜尋訊號</string>
+    <string name="btn_start_listen">開始監聽</string>
+    <string name="btn_stop_listen">停止監聽</string>
+    <string name="btn_stop_link">中斷連線</string>
     <string name="btn_backward">回上一層</string>
-    <string name="btn_yes">確定</string>
-    <string name="btn_no">否定</string>
-
+    <string name="yes">確定</string>
+    <string name="no">否定</string>
+    <string name="tv_no_link">沒有連線</string>
+    <string name="tv_listening">等待連接</string>
+    <string name="tv_linking">嘗試連接</string>
+    <string name="tv_linked">已連接</string>
     <string name="tv_nickname">暱稱</string>
+    <string name="tv_bound_device">配對裝置</string>
+    <string name="tv_not_bound_device">可用裝置</string>
     <string name="label_me">ME</string>
     <string name="label_peers">PEERS</string>
     <string name="empty_message">沒有設備，打開WiFi Direct並搜索設備。</string>

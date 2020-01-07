@@ -401,7 +401,7 @@ public class WifiClientThread extends Thread {
                 Log.v("aaa","接收失敗" + byteArrayOutputStream.size());
                 byteArrayOutputStream = null;
                 fileTotalLengthCheck = 0;
-                mainActivity.handler.sendEmptyMessage(DATA_RECIVE_FAIL);
+                mainActivity.handler.sendEmptyMessage(DATA_RECEIVE_FAIL);
             }
         }
 

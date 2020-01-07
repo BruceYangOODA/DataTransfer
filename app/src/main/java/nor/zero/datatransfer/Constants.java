@@ -9,11 +9,18 @@ public interface Constants {
     public static final String DEVICE_DETAIL_FRAGMENT = "deviceDetailFragment";
     public static final int WIFI_PORT = 8898;
     public static final int DATA_CHAT = 0;
+
+    /*
+    *   Handler 使用常數
+     */
     public static final int DATA_RECEIVE_START = 1;
-    public static final int DATA_RECIVE_FAIL = 2;
+    public static final int DATA_RECEIVE_FAIL = 2;
     public static final int DATA_CREATE_FILE = 3;
     public static final int DATA_CREATE_FILE_SERVER = 21;
     public static final int DATA_CREATE_FILE_CLIENT = 22;
+    public static final int BLUETOOTH_THREAD_STATE = 4;
+    public static final int BLUETOOTH_DEVICE_NAME = 5;
+    public static final int BLUETOOTH_DEVICE_LOST = 6;
 
     // 檔案傳輸協定確認碼
     public static final String DATA_TYPE_MESSAGE = "*#401!";    //文字訊息,檔案傳輸開始,檔案傳輸結束
@@ -23,8 +30,8 @@ public interface Constants {
 
 
     public static final int CHECK_CODE_LENGTH = 6;       //確認碼byte陣列長度
-    public static final int READER_LENGTH = 1024;//990;    //接收資料暫存byte陣列長度
-    public static final int SENDER_LENGTH = 990;//900;    //送出資料暫存byte陣列長度 ,之後會跟確認碼等陣列合併
+    public static final int READER_LENGTH = 990;//990;    //接收資料暫存byte陣列長度,藍芽訊號最多讀990byte
+    public static final int SENDER_LENGTH = 900;//900;    //送出資料暫存byte陣列長度 ,之後會跟確認碼等陣列合併
     //public static final int CHAT_NAME_LENGTH = 30;  //存放CHAT_DATA 名字的部分 最大長度是UTF-8編碼10個中文字
     public static final int DATA_CHECK_LENGTH = 30;  //存放CHAT_DATA 名字的部分 最大長度是UTF-8編碼10個中文字
 
@@ -38,6 +45,16 @@ public interface Constants {
     public static final String FILE_TYPE = "fileType";
     public static final String FILE_NAME = "fileName";
     public static final String FILE_ABSOLUTE_PATH = "filePath";
+
+    /*
+    *BluetoothConnectService 使用常數
+    */
+    public static final String CURRENT_STATE = "currentState" ;
+    public static final String DEVICE_NAME = "deviceName" ;
+    public static final int STATE_NONE = 0; //目前無連接
+    public static final int STATE_LISTEN = 1; //目前監聽中
+    public static final int STATE_CONNECTING = 2; //目前連接中
+    public static final int STATE_CONNECTED = 3; //已連接上藍芽裝置
 
 
 }
