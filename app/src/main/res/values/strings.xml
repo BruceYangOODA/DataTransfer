@@ -8,8 +8,9 @@
     <string name="menu_bluetooth_discoverable">開放藍芽搜索</string>
     <string name="menu_wifi_direct_discover">搜索wifi</string>
     <string name="system_msg_connect_wifi">Wifi訊號開啟中</string>
-    <string name="system_msg_discover_initiated">訊號連接開始</string>
+    <string name="system_msg_discover_initiated">開始搜尋訊號</string>
     <string name="system_msg_discover_failed">訊號連接失敗</string>
+    <string name="system_msg_discover_cancel">取消搜索信號</string>
     <string name="system_msg_cancel_discover">按返回鍵取消</string>
     <string name="system_msg_discover_peers">搜索wifiP2p熱點</string>
     <string name="system_msg_discover_bluetooth_device">搜索藍芽裝置訊號</string>
@@ -35,6 +36,8 @@
     <string name="dialog_msg_disable_bluetooth">關閉藍芽服務</string>
     <string name="dialog_msg_enable_wifi">啟動無線網路服務</string>
     <string name="dialog_msg_disable_wifi">關閉無線網路服務</string>
+    <string name="dialog_msg_receive_file">接收檔案</string>
+    <string name="dialog_msg_trans_file">傳送檔案</string>
 
     <string name="button_connect">連接</string>
     <string name="button_disconnect">斷聯</string>

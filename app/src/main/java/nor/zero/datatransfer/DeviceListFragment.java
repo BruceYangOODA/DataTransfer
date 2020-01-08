@@ -18,16 +18,20 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.fragment.app.ListFragment;
-
 import java.util.ArrayList;
 import java.util.List;
 
 public class DeviceListFragment extends ListFragment implements WifiP2pManager.PeerListListener {
 
-    private View mContentVeiw = null;
-    public static List<WifiP2pDevice> peers = new ArrayList<>();
-    private ProgressDialog progressDialog = null;
-    private static WifiP2pDevice device;
+    private View mContentView = null;
+    private List<WifiP2pDevice> peers = new ArrayList<>();
+    ProgressDialog progressDialog;
+    TextView tvDeviceName;
+    MainActivity mainActivity;
+
+    public DeviceListFragment(MainActivity mainActivity){
+        this.mainActivity = mainActivity;
+    }
 
     @Override
     public void onActivityCreated(Bundle savedInstanceState) {
@@ -36,14 +40,15 @@ public class DeviceListFragment extends ListFragment implements WifiP2pManager.P
     }
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
-        mContentVeiw = inflater.inflate(R.layout.device_list,null);
+        mContentView = inflater.inflate(R.layout.device_list,null);
 
-        return mContentVeiw;
+        return mContentView;
     }
     @Override
     public void onListItemClick(ListView l, View v, int position, long id) {
         WifiP2pDevice device = (WifiP2pDevice) getListAdapter().getItem(position);
-        ((DeviceActionListener) getActivity()).showDetails(device);
+        // 把對方藍芽裝置的資料 用 介面方法 DeviceActionListener 傳給 mainActivity
+        ((DeviceActionListener) getActivity()).remoteDeviceDetail(device);
     }
 
     // WifiP2pManager.PeerListListener 內建方法
@@ -54,17 +59,24 @@ public class DeviceListFragment extends ListFragment implements WifiP2pManager.P
             progressDialog.dismiss();
         }
         peers.clear();
-        //把搜索到的DeviceList傳給ArrayAdapter，並變更內容
+        //把搜索到的 wifi P2P裝置列表 傳給ArrayAdapter，並變更內容
         peers.addAll(peerList.getDeviceList());
         ((WiFiPeerListAdapter) getListAdapter()).notifyDataSetChanged();
-        if (peers.size() == 0) {
-            return;
+        for(WifiP2pDevice device : peers){
+            if(device.status == WifiP2pDevice.CONNECTED)
+                mainActivity.deviceDetailFragment.updateRemoteDeviceDetail(device);
         }
     }
-
-    public void onInitiateDiscovery() {
+    // 重置畫面
+    public void resetViews(){
+        peers.clear();
+        ((WiFiPeerListAdapter) getListAdapter()).notifyDataSetChanged();
+        getView().findViewById(R.id.tvNoDevice).setVisibility(View.VISIBLE);
+    }
+    // 顯示 wifi p2p 訊號搜尋 progressDialog
+    void showSearchingProgressDialog(){
         if (progressDialog != null && progressDialog.isShowing()) {
-            progressDialog.dismiss();
+            progressDialog.dismiss();   //歸零
         }
         progressDialog = ProgressDialog.show(getActivity(),
                 getResources().getString(R.string.system_msg_cancel_discover),
@@ -72,20 +84,9 @@ public class DeviceListFragment extends ListFragment implements WifiP2pManager.P
                 true,true, new DialogInterface.OnCancelListener() {
                     @Override
                     public void onCancel(DialogInterface dialog) {
-                        Toast.makeText(getContext(),R.string.system_msg_discover_failed,Toast.LENGTH_SHORT).show();
+                        Toast.makeText(getActivity(),R.string.system_msg_discover_cancel,Toast.LENGTH_SHORT).show();
                     }
                 });
-    }
-
-
-    public static WifiP2pDevice getDevice() {//返回這個設備
-        return device;
-    }
-
-    public void resetViews(){
-        peers.clear();
-        ((WiFiPeerListAdapter) getListAdapter()).notifyDataSetChanged();
-        getView().findViewById(R.id.tvNoDevice).setVisibility(View.VISIBLE);
     }
 
     public static String getDeviceStatus(int deviceStatus) {
@@ -134,24 +135,21 @@ public class DeviceListFragment extends ListFragment implements WifiP2pManager.P
             return v;
         }
     }
-
+    //從 WiFiDirectBroadcastReceiver 接收到 device資料,更新本機資料
     public void updateThisDevice(WifiP2pDevice device) {//更新設備信息
-        this.device = device;
-        TextView view = (TextView) mContentVeiw.findViewById(R.id.tv_my_name);
-        view.setText(device.deviceName);
-        view = (TextView) mContentVeiw.findViewById(R.id.tv_my_status);
+        // 更新 本機名稱
+        tvDeviceName = (TextView) mContentView.findViewById(R.id.tv_my_name);
+        tvDeviceName.setText(device.deviceName);
+        // 更新 本機連接狀態
+        TextView view = (TextView) mContentView.findViewById(R.id.tv_my_status);
         view.setText(getDeviceStatus(device.status));
     }
 
     public interface DeviceActionListener{//一個activity的回調接口，監聽fragment的交互事件
-        void showDetails(WifiP2pDevice device);
+        void remoteDeviceDetail(WifiP2pDevice device); //切換到 deviceDetailFragment, 更新UI
         //void cancelDisconnect();
         void connect(WifiP2pConfig config);
         void disconnect();
         void connecting(WifiP2pInfo wifiP2pInfo);
-
     }
-
-
-
 }

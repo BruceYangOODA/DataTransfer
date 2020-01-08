@@ -4,6 +4,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.util.Log;
+import android.widget.TextView;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
@@ -200,7 +201,8 @@ public class WifiServerThread extends Thread {
         if(lengthChat<Constants.SENDER_LENGTH){
             String nickName = etNickName.getText().toString();
             if(nickName.equals(""))
-                nickName = getDevice().deviceName; //DeviceListFragment 取得本機的名字
+                nickName = ((TextView)mainActivity.deviceListFragment.tvDeviceName)
+                        .getText().toString(); //DeviceListFragment 取得本機的名字
             int lengthName = DATA_CHECK_LENGTH;
             byte[] byteName = new byte[lengthName];
             byte[] byteTemp = nickName.getBytes();

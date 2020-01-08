@@ -5,6 +5,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.util.Log;
+import android.widget.TextView;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
@@ -20,8 +21,6 @@ import java.net.Socket;
 
 import static nor.zero.datatransfer.Constants.*;
 import static nor.zero.datatransfer.DeviceDetailFragment.etNickName;
-import static nor.zero.datatransfer.DeviceListFragment.getDevice;
-
 /***
  *
  * 這個程式改使用 WifiConnectedThread
@@ -58,7 +57,7 @@ public class WifiClientThread extends Thread {
         byte[] buffer = new byte[Constants.READER_LENGTH];
         while (isConnecting){
             try {
-                socket = new Socket(mainActivity.hostAddress,Constants.WIFI_PORT);
+                socket = new Socket(mainActivity.serverSocketHostAddress,Constants.WIFI_PORT);
                 if(socket != null){     // socket連接成功
                     inputStream = socket.getInputStream();
                     outputStream = socket.getOutputStream();
@@ -161,7 +160,8 @@ public class WifiClientThread extends Thread {
         if(lengthChat<Constants.SENDER_LENGTH){
             String nickName = etNickName.getText().toString();
             if(nickName.equals(""))
-                nickName = getDevice().deviceName; //DeviceListFragment 取得本機的名字
+                nickName = ((TextView)mainActivity.deviceListFragment.tvDeviceName)
+                        .getText().toString(); //DeviceListFragment 取得本機的名字
             int lengthName = DATA_CHECK_LENGTH;
             byte[] byteName = new byte[lengthName];
             byte[] byteTemp = nickName.getBytes();

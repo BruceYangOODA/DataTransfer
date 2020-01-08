@@ -51,7 +51,8 @@ public class ChatFragment extends Fragment {
                 //DeviceDetailFragment 取得暱稱設定，如果未設定,預設為本機的名字
                 nickName = etNickName.getText().toString();
                 if(nickName.equals(""))
-                    nickName = getDevice().deviceName; //DeviceListFragment 取得本機的名字
+                    nickName = ((TextView)mainActivity.deviceListFragment.tvDeviceName)
+                            .getText().toString(); //DeviceListFragment 取得本機的名字
                 nickNameCheckSet.add(nickName);     //記錄自己名字的記錄,如果重複,set就不會記錄
                 HashMap<String,String> addMessage = new HashMap<>();
                 addMessage.put(Constants.CHAT_MSG_NAME,nickName);

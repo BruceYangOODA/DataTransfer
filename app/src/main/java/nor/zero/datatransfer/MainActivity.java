@@ -7,6 +7,7 @@ import androidx.fragment.app.FragmentManager;
 import androidx.fragment.app.FragmentTransaction;
 
 import android.app.Dialog;
+import android.app.ProgressDialog;
 import android.bluetooth.BluetoothAdapter;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
@@ -59,6 +60,7 @@ public class MainActivity extends AppCompatActivity implements WifiP2pManager.Ch
    // private FragmentManager fragmentManager;  XX
    // private FragmentTransaction transaction;
     private BroadcastReceiver receiver = null;
+    ProgressDialog progressDialog;
     /*
     public static final String CHAT_FRAGMENT = "chatFragment";
     public static final String DEVICE_LIST_FRAGMENT = "deviceListFragment";
@@ -72,14 +74,18 @@ public class MainActivity extends AppCompatActivity implements WifiP2pManager.Ch
     public WifiServerThread wifiServerThread  = null;
     public WifiClientThread wifiClientThread = null ;
     public WifiConnectedThread wifiConnectedThread = null;
-    static String hostAddress="";
-    WifiP2pInfo wifiP2pInfo = null;
+    String serverSocketHostAddress="";
+    //WifiP2pInfo wifiP2pInfo = null;
     private String fileName="";
-    ServerSocket serverSocket;
+    private int fileSize = 0;
+    private int currentSize = 0;
+    boolean isReceive;  //判別是接收檔案或傳送檔案 ,影響progressDialog的Title與Message
+    //ServerSocket serverSocket;
     BluetoothAdapter bluetoothAdapter;
     ViewAnimator viewAnimator;
     boolean isBluetoothDevice;
     BluetoothConnectService bluetoothConnectService;
+    WifiP2pDevice remoteDevice;
 
     private TextView tvChatClick,tvP2PListClick,tvP2PDetailClick;
     private static int selectTab = 1;   //目前顯示內容是哪一個Fragment
@@ -91,23 +97,17 @@ public class MainActivity extends AppCompatActivity implements WifiP2pManager.Ch
         public void handleMessage(Message msg) {
             switch (msg.what){
                 case DATA_CHAT:
-                    // 從另一台機器 傳來的本機Thread接收到的信息
-                    String strName = msg.getData().getString(CHAT_MSG_NAME);
-                    String strContent = msg.getData().getString(CHAT_MSG_CONTENT);
-                    HashMap<String,String> chatContent = new HashMap<>();
-                    chatContent.put(CHAT_MSG_NAME,strName);
-                    chatContent.put(CHAT_MSG_CONTENT,strContent);
-                    chatFragment.addChatContent(chatContent);   //新增charFragment list內容
+                    // 接收到對方機器傳來的信息,更新本機chatFragment顯示UI
+                    readOthersWriting(msg);
+                    break;
+                case DATA_TRANS_NOTE:   //CPU不夠,跑不動
+                   // transNote(msg);    //通知傳送檔案檔名與大小
                     break;
                 case DATA_RECEIVE_START:
-                    // 從另一台機器 接受到檔名與檔案大小
-                    String tempFileName = msg.getData().getString(DATA_MSG_FILE_NAME);
-                    String fileSize = msg.getData().getString(DATA_MSG_FILE_SIZE);
-                    Log.v("aaa","收到檔名: "+fileName);
-                    Log.v("aaa","收到大小: "+fileSize);
-                    fileName = tempFileName;
-                    Toast.makeText(getBaseContext(),getString(R.string.sys_msg_receive)+tempFileName+"\n"+
-                            getString(R.string.sys_msg_file_size)+fileSize,Toast.LENGTH_SHORT).show();
+                    receiveFile(msg);   //通知接收的檔名與大小
+                    break;
+                case DATA_PROGRESS:
+                    updateProgress(msg);    //通知目前傳送檔案進度%
                     break;
                 case DATA_RECEIVE_FAIL:
                     Toast.makeText(getBaseContext(),getString(R.string.sys_msg_receive_fail),Toast.LENGTH_SHORT).show();
@@ -143,29 +143,6 @@ public class MainActivity extends AppCompatActivity implements WifiP2pManager.Ch
             }
         }
     };
-    //修改UI 顯示目前藍芽傳輸執行緒連接狀態
-    private void updateBluetoothState(int currentState){
-        switch (currentState){
-            case STATE_NONE:
-                bluetoothFragment.tvCurrentState.setText(getString(R.string.tv_no_link));
-                bluetoothFragment.btnListen.setText(getString(R.string.btn_start_listen));
-                bluetoothFragment.tvDeviceName.setText("");
-                break;
-            case STATE_LISTEN:
-                bluetoothFragment.tvCurrentState.setText(getString(R.string.tv_listening));
-                break;
-            case STATE_CONNECTING:
-                bluetoothFragment.tvCurrentState.setText(getString(R.string.tv_linking));
-                break;
-            case STATE_CONNECTED:
-                bluetoothFragment.tvCurrentState.setText(getString(R.string.tv_linked));
-                bluetoothFragment.btnListen.setText(getString(R.string.btn_start_listen));
-                break;
-                default:
-                    break;
-        }
-    }
-
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -177,13 +154,13 @@ public class MainActivity extends AppCompatActivity implements WifiP2pManager.Ch
     public void onResume() {
         super.onResume();
         receiver = new WiFiDirectBroadcastReceiver(wifiP2pManager, channel, this);
-        registerReceiver(receiver, intentFilter);
+        registerReceiver(receiver, intentFilter);   //重新註冊 廣播接收器
 
     }
     @Override
     public void onPause() {
         super.onPause();
-        unregisterReceiver(receiver);
+        unregisterReceiver(receiver);       //註銷 廣播接收器
     }
     @Override
     protected void onDestroy() {
@@ -225,15 +202,15 @@ public class MainActivity extends AppCompatActivity implements WifiP2pManager.Ch
                 return true;
             // 開啟系統wifi服務
             case R.id.menu_wifi_connect:
-                showDialogRequestWifiService();
-                /*  //開啟Android wifi系統設定介面
+                showRequestWifiServiceDialog();
+                /*  //跳到Android wifi系統設定介面的方法
                 Intent intent = new Intent();
                 ComponentName componentName = new ComponentName("com.android.settings",
                         "com.android.settings.wifi.WifiSettings");
                 intent.setComponent(componentName);
                 startActivity(intent);*/
                 return true;
-                //詢問是否啟用藍芽服務
+                //詢問是否啟用藍芽服務 顯示的fragment 是 R.id.menu_toggle_log 的其中一個
             case R.id.menu_bluetooth_service:
                     showDialogRequestBluetoothService();
                 return true;
@@ -242,11 +219,11 @@ public class MainActivity extends AppCompatActivity implements WifiP2pManager.Ch
                 if(wifiManager.isWifiEnabled())    //wifi服務有開啟
                     searchingWifiP2PSignal();
                 else                                //wifi服務沒有開啟
-                    showDialogRequestWifiService();
+                    showRequestWifiServiceDialog();
                 return true;
-                // 搜尋bluetooth裝置
+                // 查看 bluetoothDevice 裝置列表
             case R.id.menu_bluetooth_connect:
-                   searchingBluetoothDevice();
+                    showBluetoothDeviceList();
                 return true;
                 //  開放藍芽訊號給其他裝置搜索
             case R.id.menu_bluetooth_discoverable:
@@ -261,6 +238,12 @@ public class MainActivity extends AppCompatActivity implements WifiP2pManager.Ch
         return super.onOptionsItemSelected(item);
     }
 
+    /*
+    *
+    *   本機主要UI 處理介面
+    *
+     */
+    // 畫面 與 設定 初始化
     private void init(){
         //檢察系統藍芽功能
         bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
@@ -277,8 +260,8 @@ public class MainActivity extends AppCompatActivity implements WifiP2pManager.Ch
         wifiP2pManager = (WifiP2pManager) getApplicationContext().getSystemService(Context.WIFI_P2P_SERVICE);
         channel = wifiP2pManager.initialize(this,getMainLooper(),null);
         // 監聽wifi狀態改變
-        intentFilter.addAction(WifiP2pManager.WIFI_P2P_STATE_CHANGED_ACTION);//狀態的改變
-        intentFilter.addAction(WifiP2pManager.WIFI_P2P_PEERS_CHANGED_ACTION);//搜到列表改變
+        intentFilter.addAction(WifiP2pManager.WIFI_P2P_STATE_CHANGED_ACTION);//偵測Wifi P2P狀態的改變
+        intentFilter.addAction(WifiP2pManager.WIFI_P2P_PEERS_CHANGED_ACTION);//偵測Wifi P2P搜到peers改變
         intentFilter.addAction(WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION);//鏈接狀態是否改變
         intentFilter.addAction(WifiP2pManager.WIFI_P2P_THIS_DEVICE_CHANGED_ACTION);//設備的詳細信息改變
 
@@ -292,14 +275,13 @@ public class MainActivity extends AppCompatActivity implements WifiP2pManager.Ch
         transaction.add(R.id.flFileList,fileListFragment);
         transaction.add(R.id.flBluetoothList,bluetoothFragment);
         // 處理藍芽資料傳輸的執行緒群
-        bluetoothConnectService = new BluetoothConnectService(handler);
+        bluetoothConnectService = new BluetoothConnectService(this);
 
         //設置主畫面下方三個Fragment之交換顯示
         flMainContent = findViewById(R.id.flMainContent);
         chatFragment = new ChatFragment(this);
-        deviceListFragment = new DeviceListFragment();
-        deviceDetailFragment = new DeviceDetailFragment();
-
+        deviceListFragment = new DeviceListFragment(this);
+        deviceDetailFragment = new DeviceDetailFragment(this);
 
         transaction.add(R.id.flMainContent,chatFragment,Constants.CHAT_FRAGMENT);
         transaction.add(R.id.flMainContent,deviceListFragment,Constants.DEVICE_LIST_FRAGMENT);
@@ -313,37 +295,139 @@ public class MainActivity extends AppCompatActivity implements WifiP2pManager.Ch
         tvChatClick.setOnClickListener(tvClickListener);
         tvP2PListClick.setOnClickListener(tvClickListener);
         tvP2PDetailClick.setOnClickListener(tvClickListener);
-
     }
-
-    // 搜索wifiP2P 熱點訊號
-    private void searchingWifiP2PSignal(){
-        if(selectTab != 1){         //如果fragment不是顯示wifi熱點顯示fragment,就切換至該fragment
+    // 更換畫面下方Fragment 內容
+    View.OnClickListener tvClickListener = new View.OnClickListener() {
+        @Override
+        public void onClick(View v) {
+            int viewID = v.getId();
             FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
-            hideFragments(transaction);
-            transaction.show(deviceListFragment);
-            transaction.commit();
-            selectTab = 1;
-            changeTabColor(selectTab);
+            switch (viewID){
+                case R.id.tvChatClick:
+                    if(selectTab != 0) {
+                        hideFragments(transaction);
+                        transaction.show(chatFragment);
+                        transaction.commit();
+                        selectTab = 0;
+                        changeTabColor(selectTab);  }
+                    return;
+                case R.id.tvP2PListClick:
+                    if(selectTab != 1){
+                        hideFragments(transaction);
+                        transaction.show(deviceListFragment);
+                        transaction.commit();
+                        selectTab =1;
+                        changeTabColor(selectTab); }
+                    return;
+                case R.id.tvP2PDetailClick:
+                    if(selectTab !=2){
+                        hideFragments(transaction);
+                        transaction.show(deviceDetailFragment);
+                        transaction.commit();
+                        selectTab =2;
+                        changeTabColor(selectTab);  }
+                    return;
+            }
         }
-        //搜尋其他手機wifi P2P訊號
-        deviceListFragment.onInitiateDiscovery();
-        wifiP2pManager.discoverPeers(channel, new WifiP2pManager.ActionListener() {
-            @Override
-            public void onSuccess() {
-                Toast.makeText(MainActivity.this, R.string.system_msg_discover_initiated,
-                        Toast.LENGTH_SHORT).show();
-            }
-
-            @Override
-            public void onFailure(int reason) {
-                Toast.makeText(MainActivity.this, R.string.system_msg_discover_failed,
-                        Toast.LENGTH_SHORT).show();
-            }
-        });
+    };
+    // 將下方fragment 隱藏起來,之後UI指定其中一個顯現
+    private void hideFragments(FragmentTransaction transaction){
+        if(chatFragment != null){
+            transaction.hide(chatFragment);
+        }
+        if(deviceListFragment != null){
+            transaction.hide(deviceListFragment);
+        }
+        if(deviceDetailFragment != null){
+            transaction.hide(deviceDetailFragment);
+        }
     }
+    //  點擊TextView切換目前點選TextView 的UI標示
+    private void changeTabColor(int select){
+        switch (select){
+            case 0:
+                tvChatClick.setBackgroundColor(getResources().getColor(R.color.Aquamarine));
+                tvP2PListClick.setBackgroundColor(getResources().getColor(R.color.MediumAquamarine));
+                tvP2PDetailClick.setBackgroundColor(getResources().getColor(R.color.MediumAquamarine));
+                break;
+            case 1:
+                tvChatClick.setBackgroundColor(getResources().getColor(R.color.MediumAquamarine));
+                tvP2PListClick.setBackgroundColor(getResources().getColor(R.color.Aquamarine));
+                tvP2PDetailClick.setBackgroundColor(getResources().getColor(R.color.MediumAquamarine));
+                break;
+            case 2:
+                tvChatClick.setBackgroundColor(getResources().getColor(R.color.MediumAquamarine));
+                tvP2PListClick.setBackgroundColor(getResources().getColor(R.color.MediumAquamarine));
+                tvP2PDetailClick.setBackgroundColor(getResources().getColor(R.color.Aquamarine));
+                break;
+                default:
+                    break;
+        }
+    }
+    // 接收到對方機器傳來的信息,更新本機chatFragment顯示UI
+    private void readOthersWriting(Message msg){
+        String strName = msg.getData().getString(CHAT_MSG_NAME);
+        String strContent = msg.getData().getString(CHAT_MSG_CONTENT);
+        HashMap<String,String> chatContent = new HashMap<>();
+        chatContent.put(CHAT_MSG_NAME,strName);
+        chatContent.put(CHAT_MSG_CONTENT,strContent);
+        chatFragment.addChatContent(chatContent);   //新增charFragment list內容
+    }
+    //修改UI 顯示目前藍芽傳輸執行緒連接狀態
+    private void updateBluetoothState(int currentState){
+        switch (currentState){
+            case STATE_NONE:
+                bluetoothFragment.tvCurrentState.setText(getString(R.string.tv_no_link));
+                bluetoothFragment.btnListen.setText(getString(R.string.btn_start_listen));
+                bluetoothFragment.tvDeviceName.setText("");
+                break;
+            case STATE_LISTEN:
+                bluetoothFragment.tvCurrentState.setText(getString(R.string.tv_listening));
+                break;
+            case STATE_CONNECTING:
+                bluetoothFragment.tvCurrentState.setText(getString(R.string.tv_linking));
+                break;
+            case STATE_CONNECTED:
+                bluetoothFragment.tvCurrentState.setText(getString(R.string.tv_linked));
+                bluetoothFragment.btnListen.setText(getString(R.string.btn_start_listen));
+                break;
+            default:
+                break;
+        }
+    }
+    // 點選  R.id.menu_bluetooth_connect 將上層 fragment 切換成 藍芽裝置列表畫面
+    private void showBluetoothDeviceList(){
+        if(!checkBluetoothFunction()){     //本機不支援藍芽功能
+            return;
+        }
+        if(!mLogShown){  //目前顯示的是檔案頁面
+            //顯示搜尋到的bluetooth 裝置清單Fragment
+            mLogShown = !mLogShown ;
+            viewAnimator.setDisplayedChild(1);
+            bluetoothFragment.showPairedDevice(); //顯示配對的藍芽裝置
+            //呼叫 Android內建功能 onPrepareOptionsMenu 更新切換後的顯示標題
+            supportInvalidateOptionsMenu();
+        }
+    }
+    // 將 wifiP2p 熱點裝置列表 資料清空
+    public void resetView(){
+        // 清空DeviceListFragment 之前接收的資料
+        if(deviceDetailFragment != null){
+            deviceDetailFragment.resetViews();
+        }
+        if(deviceListFragment != null){
+            deviceListFragment.resetViews();
+        }
+    }
+
+
+    /*
+    *
+    *  wifi 訊號處理區塊
+    *
+    */
     //詢問是否啟用Wifi服務
-    private void showDialogRequestWifiService(){
+    private void showRequestWifiServiceDialog(){
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle(getString(R.string.dialog_msg_system_setting))
                 .setMessage(wifiManager.isWifiEnabled() ?        //隨著wifi服務狀態變更顯示訊息 啟動/關閉
@@ -366,6 +450,48 @@ public class MainActivity extends AppCompatActivity implements WifiP2pManager.Ch
                     }
                 })
                 .show();
+    }
+    // 搜索wifiP2P 熱點訊號
+    private void searchingWifiP2PSignal(){
+        if(selectTab != 1){         //如果fragment不是顯示wifi熱點顯示fragment,就切換至該fragment
+            FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
+            hideFragments(transaction);
+            transaction.show(deviceListFragment);
+            transaction.commit();
+            selectTab = 1;
+            changeTabColor(selectTab);
+        }
+        // 顯示 wifi p2p 訊號搜尋 progressDialog
+        deviceListFragment.showSearchingProgressDialog();
+        // 搜尋的頻道 歸零
+        channel = wifiP2pManager.initialize(this,getMainLooper(),null);
+        //搜尋其他手機wifi P2P peers, 會由WifiP2pManager.PeerListListener 取得 peers 列表
+        wifiP2pManager.discoverPeers(channel, new WifiP2pManager.ActionListener() {
+            @Override
+            public void onSuccess() {
+                Toast.makeText(MainActivity.this, R.string.system_msg_discover_initiated,
+                        Toast.LENGTH_SHORT).show();
+            }
+            @Override
+            public void onFailure(int reason) {
+                Toast.makeText(MainActivity.this, R.string.system_msg_discover_failed,
+                        Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+
+    /*
+    *
+    *    藍芽訊號處理區塊
+    *
+     */
+    //檢察本機是否支援藍芽功能
+    public boolean checkBluetoothFunction(){
+        boolean result = isBluetoothDevice;
+        if(!isBluetoothDevice)
+            Toast.makeText(this,getString(R.string.sys_msg_not_support_bluetooth),Toast.LENGTH_SHORT).show();
+        return result;
     }
     //詢問是否啟用藍芽服務
     public void showDialogRequestBluetoothService(){
@@ -396,13 +522,6 @@ public class MainActivity extends AppCompatActivity implements WifiP2pManager.Ch
         else
             Toast.makeText(this,getString(R.string.sys_msg_not_support_bluetooth),Toast.LENGTH_SHORT).show();
     }
-    //檢察本機是否支援藍芽功能
-    public boolean checkBluetoothFunction(){
-        boolean result = isBluetoothDevice;
-        if(!isBluetoothDevice)
-            Toast.makeText(this,getString(R.string.sys_msg_not_support_bluetooth),Toast.LENGTH_SHORT).show();
-        return result;
-    }
     // 開放訊號給其他裝置搜索本機藍芽訊號 60秒(1分鐘)
     private void ensureDiscoverable(){
         if(bluetoothAdapter.getScanMode() != BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE){
@@ -411,90 +530,9 @@ public class MainActivity extends AppCompatActivity implements WifiP2pManager.Ch
             startActivity(discoverableIntent);
         }
     }
-    //
-    private void searchingBluetoothDevice(){
-        if(!checkBluetoothFunction()){     //本機不支援藍芽功能
-            return;
-        }
-        if(!mLogShown){  //目前顯示的是檔案頁面
-            //顯示搜尋到的bluetooth 裝置清單Fragment
-            mLogShown = !mLogShown ;
-            viewAnimator.setDisplayedChild(1);
-            bluetoothFragment.showPairedDevice(); //顯示配對的藍芽裝置
-            //呼叫 Android內建功能 onPrepareOptionsMenu 更新切換後的顯示標題
-            supportInvalidateOptionsMenu();
-            //todo
-        }
 
-    }
-
-    // 更換畫面下方Fragment 內容
-    View.OnClickListener tvClickListener = new View.OnClickListener() {
-        @Override
-        public void onClick(View v) {
-            int viewID = v.getId();
-            FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
-            switch (viewID){
-                case R.id.tvChatClick:
-                    if(selectTab != 0)
-                    {
-                        hideFragments(transaction);
-                        transaction.show(chatFragment);
-                        transaction.commit();
-                        selectTab = 0;
-                        changeTabColor(selectTab);
-                    }
-                    return;
-
-                case R.id.tvP2PListClick:
-                    if(selectTab != 1){
-                        hideFragments(transaction);
-                        transaction.show(deviceListFragment);
-                        transaction.commit();
-                        selectTab =1;
-                        changeTabColor(selectTab);
-                    }
-
-                    return;
-                case R.id.tvP2PDetailClick:
-                    if(selectTab !=2){
-                        hideFragments(transaction);
-                        transaction.show(deviceDetailFragment);
-                        transaction.commit();
-                        selectTab =2;
-                        changeTabColor(selectTab);
-                    }
-                    return;
-            }
-        }
-    };
-    //  點擊fragment切換TextView, 切換目前點選TextView UI顯示
-    private void changeTabColor(int select){
-        switch (select){
-            case 0:
-                tvChatClick.setBackgroundColor(getResources().getColor(R.color.Aquamarine));
-                tvP2PListClick.setBackgroundColor(getResources().getColor(R.color.MediumAquamarine));
-                tvP2PDetailClick.setBackgroundColor(getResources().getColor(R.color.MediumAquamarine));
-                break;
-            case 1:
-                tvChatClick.setBackgroundColor(getResources().getColor(R.color.MediumAquamarine));
-                tvP2PListClick.setBackgroundColor(getResources().getColor(R.color.Aquamarine));
-                tvP2PDetailClick.setBackgroundColor(getResources().getColor(R.color.MediumAquamarine));
-                break;
-            case 2:
-                tvChatClick.setBackgroundColor(getResources().getColor(R.color.MediumAquamarine));
-                tvP2PListClick.setBackgroundColor(getResources().getColor(R.color.MediumAquamarine));
-                tvP2PDetailClick.setBackgroundColor(getResources().getColor(R.color.Aquamarine));
-                break;
-                default:
-                    break;
-        }
-    }
-
-
-
-
-    /* 資料傳遞區塊
+    /*
+    *   資料傳遞區塊
     *   先判讀有藍芽裝置連接 就用 內部類別 ConnectedThread 傳輸資料
     *   再判讀有P2P熱點連接  次用 P2P熱點傳輸
     */
@@ -507,15 +545,67 @@ public class MainActivity extends AppCompatActivity implements WifiP2pManager.Ch
         }
     }
     void transfer(String filePath,String fileName){
-        if(bluetoothConnectService.getState() == STATE_CONNECTED)   //使用藍芽
-            bluetoothConnectService.connectedThread.transfer(filePath,fileName);
-        else{  //使用WIFI
-            if(wifiConnectedThread!= null)
-                wifiConnectedThread.transfer(filePath,fileName);
+        if(bluetoothConnectService.getState() == STATE_CONNECTED) {  //使用藍芽
+            bluetoothConnectService.connectedThread.transfer(filePath, fileName);
         }
+        else{  //使用WIFI
+            if(wifiConnectedThread!= null) {
+                wifiConnectedThread.transfer(filePath, fileName);
+            }
+        }
+    }
+    /*CPU不夠,跑不動
+    // 通知傳送檔案檔名與大小 給progressDialog核對進度
+    void transNote(Message msg){
+        fileName = msg.getData().getString(DATA_MSG_FILE_NAME);
+        fileSize = msg.getData().getInt(DATA_MSG_FILE_SIZE);
+        isReceive = false;
+        showProgressDialog();
+    }*/
+    // 通知傳送檔案檔名與大小 給progressDialog核對進度
+    void receiveFile(Message msg){
+        // 從另一台機器 接受到檔名與檔案大小
+        fileName = msg.getData().getString(DATA_MSG_FILE_NAME);
+        fileSize = msg.getData().getInt(DATA_MSG_FILE_SIZE);
+        isReceive = true;
+        showProgressDialog();
+    }
+    //調整進度條　進度
+    void updateProgress(Message msg){
+        float currentSize = (float)msg.getData().getInt(DATA_MSG_FILE_CURRENT_SIZE);
+        float tempSize = (float)fileSize;
+        int percent = (int)(currentSize/tempSize*100);
+        if(progressDialog != null){
+            progressDialog.setProgress(percent);
+        }
+        if(currentSize>=tempSize){   //進度達100%
+            progressDialog.dismiss();
+            if(!isReceive){  //傳輸端不需要檔名創檔,在這邊歸零
+            fileName ="";
+            fileSize=0;
+            }
+        }
+    }
+    // 顯示目前檔案傳遞進度
+    void showProgressDialog(){
+        if(progressDialog!= null && progressDialog.isShowing())  //先歸零
+            progressDialog.dismiss();
+        // UI顯示 檔案接收進度條
+        progressDialog = new ProgressDialog(this);
+        // 目前是接收還是傳送
+        progressDialog.setTitle(isReceive?getString(R.string.dialog_msg_receive_file):
+                getString(R.string.dialog_msg_trans_file));
+        progressDialog.setMessage(getString(R.string.sys_msg_trans_file)+": " +fileName+"\n"
+                +getString(R.string.sys_msg_file_size)+": "+fileSize);
+        progressDialog.setMax(100);
+        progressDialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
+        progressDialog.show();
     }
     // 將接收到的byte[] 轉為檔案
     void createFile(){
+        //收掉進度條
+        if(progressDialog != null && progressDialog.isShowing())
+            progressDialog.dismiss();
         byte[] dataByteStream;
         if(bluetoothConnectService.getState() == STATE_CONNECTED)   //使用藍芽
             dataByteStream = bluetoothConnectService.connectedThread.byteArrayOutputStream.toByteArray();
@@ -532,37 +622,110 @@ public class MainActivity extends AppCompatActivity implements WifiP2pManager.Ch
             fileOutputStream.close();
             Log.v("aaa","創建檔案成功");
             fileName=""; //檔案名稱歸零 ,準備下一次創建
+            fileSize = 0;
 
         } catch (Exception e) {
             e.printStackTrace();
         }
         //接收檔案容器歸零
         dataByteStream = null;
+    }
+    //開啟ServerSocket 與 Socket 取得socket物件 給 wifiConnectedThread 傳遞資料
+    private synchronized void createConnectedThread(WifiP2pInfo wifiP2pInfo){
+        final String hostAddress = wifiP2pInfo.groupOwnerAddress.getHostAddress();
+        deviceListFragment.getView().findViewById(R.id.tvNoDevice).setVisibility(View.INVISIBLE);
+        Thread t;
+        // 伺服端開啟執行緒 新建ServerSocket 監聽 來自 客戶端 的連接申請,連接後 取得 socket物件
+        if(wifiP2pInfo.groupFormed && wifiP2pInfo.isGroupOwner){
+            t = new Thread("ServerThread"){
+                @Override
+                public void run() {
+                    try{
+                        ServerSocket serverSocket = new ServerSocket(WIFI_PORT);
+                        Socket tmpSocket;
+                        Boolean isConnecting = true;
+                        while (isConnecting){
+                            try{
+                                tmpSocket = serverSocket.accept();
+                                Log.v("aaa","伺服端接收到連接");
+                                if(tmpSocket != null){
+                                    Log.v("aaa","伺服端取得socket物件");
+                                    isConnecting = false;
+                                    // 將取得的 socket 物件 傳給 wifiConnectedThread 執行 傳遞資料
+                                    wifiConnectedThread = new WifiConnectedThread(MainActivity.this,tmpSocket);
+                                    wifiConnectedThread.start();
+                                    Log.v("aaa","建立伺服端資料執行緒");
+                                    try {
+                                        this.finalize();
+                                    } catch (Throwable throwable) {
+                                        throwable.printStackTrace();
+                                    }
+                                }
+                            }catch (Exception e){Log.v("aaa","伺服端socket連接失敗");}
+                        }
+                    }
+                    catch (Exception e){    Log.v("aaa","伺服端socket連接失敗2");  }
+                }
+            };
+            t.start();
+        }
+        //如果本機是用戶端，新建用戶端執行緒 連接 伺服端的ServerSocket 取得 socket物件
+        else if(wifiP2pInfo.groupFormed && !wifiP2pInfo.isGroupOwner){
+            t = new Thread("ClientThread"){
+                @Override
+                public void run() {
+                    try{
+                        Socket tmpSocket;
+                        Boolean isConnecting = true;
+                        while (isConnecting){
+                            try{
+                                tmpSocket = new Socket(hostAddress,WIFI_PORT);
+                                Log.v("aaa","客戶端完成連接");
+                                if(tmpSocket != null){
+                                    Log.v("aaa","客戶端取得socket物件");
+                                    isConnecting = false;
+                                   // socket = tmpSocket;
+                                    wifiConnectedThread = new WifiConnectedThread(MainActivity.this,tmpSocket);
+                                    wifiConnectedThread.start();
+                                    Log.v("aaa","建立客戶端資料執行緒");
+
+                                    try {
+                                        this.finalize();
+                                    } catch (Throwable throwable) {
+                                        throwable.printStackTrace();
+                                    }
+
+                                }
+                            }catch (Exception e){Log.v("aaa","客戶端socket連接失敗");}
+                        }
+                    }
+                    catch (Exception e){    Log.v("aaa","客戶端socket連接失敗2");  }
+                }
+            };
+            t.start();
+
+        }
+        /*
+        while (true){
+            if(socket!= null){
+                wifiConnectedThread = new WifiConnectedThread(this,socket);
+                Log.v("aaa","建立資料執行緒");
+                break;
+            }
+        }*/
 
     }
 
-
-    private void hideFragments(FragmentTransaction transaction){
-        if(chatFragment != null){
-            transaction.hide(chatFragment);
-        }
-        if(deviceListFragment != null){
-            transaction.hide(deviceListFragment);
-        }
-        if(deviceDetailFragment != null){
-            transaction.hide(deviceDetailFragment);
-        }
-    }
-
-
-
-    public void setIsWifiP2pEnabled(boolean isWifiP2pEnabled) {
-        this.isWifiP2pEnabled = isWifiP2pEnabled;
-    }
-
+    /*
+    *
+    *   DeviceListFragment.DeviceActionListener 區塊
+     *
+     */
+    //DeviceListFragment.DeviceActionListener 切換到 deviceDetailFragment, 更新UI
     @Override
-    public void showDetails(WifiP2pDevice device) {
-        deviceDetailFragment.showDetails(device);
+    public void remoteDeviceDetail(WifiP2pDevice device) {
+
+        deviceDetailFragment.remoteDeviceDetail(device);
         FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
         hideFragments(transaction);
         transaction.show(deviceDetailFragment);
@@ -570,21 +733,12 @@ public class MainActivity extends AppCompatActivity implements WifiP2pManager.Ch
         selectTab = 2;
         changeTabColor(selectTab);
     }
-
-    public void wifiSendMessage(String chatMessage){}
-
-    public void cancelDisconnect() {
-
-    }
-
+    //DeviceListFragment.DeviceActionListener 會由 WiFiDirectBroadcastReceiver 回傳 wifiP2pInfo
     @Override
     public void connect(WifiP2pConfig wifiP2pConfig) {
         wifiP2pManager.connect(channel, wifiP2pConfig, new WifiP2pManager.ActionListener() {
             @Override
-            public void onSuccess() {
-
-            }
-
+            public void onSuccess() {}
             @Override
             public void onFailure(int reason) {
                 Toast.makeText(MainActivity.this, "Connect failed. Retry.",
@@ -592,106 +746,28 @@ public class MainActivity extends AppCompatActivity implements WifiP2pManager.Ch
             }
         });
     }
-
-
+    //DeviceListFragment.DeviceActionListener 從 deviceDetailFragment 取得遠端裝置資料
+    //開啟ServerSocket 與 Socket 取得socket物件 給 wifiConnectedThread 傳遞資料
     @Override
     public void connecting(WifiP2pInfo wifiP2pInfo){
-        hostAddress = wifiP2pInfo.groupOwnerAddress.getHostAddress();
-        deviceListFragment.getView().findViewById(R.id.tvNoDevice).setVisibility(View.INVISIBLE);
-        this.wifiP2pInfo = wifiP2pInfo;
-        //如果本機是伺服端，新建伺服器執行緒 或沿用上一個Thread
-        // todo
-        if(wifiP2pInfo.groupFormed && wifiP2pInfo.isGroupOwner){
-            if(wifiServerThread != null){
-                //wifiServerThread.start();
-            }
-            else{
-                //建立P2P熱點連接後,只會只用到socket物件,因此捨棄Server,將socket物件傳給ConnectedThread監聽資料傳遞
-                //wifiServerThread = new WifiServerThread(this,Constants.WIFI_PORT);
-                //wifiServerThread.start();
-                new Thread(new Runnable() {
-                    @Override
-                    public void run() {
-                        try{
-                            serverSocket = new ServerSocket(WIFI_PORT);
-                            Socket socket = null;
-                            Boolean isConnecting = true;
-                            while (isConnecting){
-                                try{
-                                    socket = serverSocket.accept();
-                                    if(socket != null){
-                                        isConnecting = false;
-                                        wifiConnectedThread = new WifiConnectedThread(handler,socket);
-                                        wifiConnectedThread.start();
-                                        try {
-                                            this.finalize();
-                                        } catch (Throwable throwable) {
-                                            throwable.printStackTrace();
-                                        }
-
-                                    }
-                                }catch (Exception e){Log.v("aaa","socket連接失敗");}
-                            }
-                        }
-                        catch (Exception e){    Log.v("aaa","socket連接失敗");  }
-                    }
-                }).start();
-            }
-        }
-        //如果本機是用戶端，新建用戶端執行緒 或沿用上一個Thread
-        else if(wifiP2pInfo.groupFormed){
-            if(wifiClientThread != null){
-               // wifiClientThread.start();
-            }
-            else {
-               // wifiClientThread = new WifiClientThread(this);
-               // wifiClientThread.start();
-                new Thread(new Runnable() {
-                    @Override
-                    public void run() {
-                        try{
-                            Socket socket = null;
-                            Boolean isConnecting = true;
-                            while (isConnecting){
-                                try{
-                                    socket = new Socket(hostAddress,WIFI_PORT);
-                                    if(socket != null){
-                                        isConnecting = false;
-                                        wifiConnectedThread = new WifiConnectedThread(handler,socket);
-                                        wifiConnectedThread.start();
-                                        try {
-                                            this.finalize();
-                                        } catch (Throwable throwable) {
-                                            throwable.printStackTrace();
-                                        }
-
-                                    }
-                                }catch (Exception e){Log.v("aaa","socket連接失敗");}
-                            }
-                        }
-                        catch (Exception e){    Log.v("aaa","socket連接失敗");  }
-                    }
-                }).start();
-            }
-        }
-
-
+        //開啟ServerSocket 與 Socket 取得socket物件 給 wifiConnectedThread 傳遞資料
+        createConnectedThread(wifiP2pInfo);
     }
-
+    //DeviceListFragment.DeviceActionListener 中止wifi p2p連接, 更新UI
     @Override
-    public void disconnect() {
-        //todo
-        if(wifiServerThread != null)
-      //      wifiServerThread.stop();
-        if(wifiClientThread != null)
-        //    wifiClientThread.stop();
-
-        wifiP2pInfo = null;
+    public synchronized void disconnect() {
+        // 通知遠端裝置 連線中斷
+        if(wifiConnectedThread != null){
+            wifiConnectedThread.sendDisconnectMessage();
+            wifiConnectedThread.cancel();
+            wifiConnectedThread = null;
+        }
+        // 將 wifiP2p 熱點裝置列表 資料清空
+        resetView();
         wifiP2pManager.removeGroup(channel, new WifiP2pManager.ActionListener() {
             @Override
             public void onSuccess() {
-                // 重置Fragment畫面
-                resetData();
+
             }
             @Override
             public void onFailure(int reason) {
@@ -700,23 +776,12 @@ public class MainActivity extends AppCompatActivity implements WifiP2pManager.Ch
         });
     }
 
-    public void resetData(){
-        // 清空DeviceListFragment 之前接收的資料
-        if(deviceDetailFragment != null){
-            deviceDetailFragment.resetViews();
-        }
-        if(deviceListFragment != null){
-            deviceListFragment.resetViews();
-        }
-
-    }
-
     //WifiP2pManager.ChannelListener 內建方法
     @Override
     public void onChannelDisconnected() {
         if(wifiP2pManager != null && !retryChannel){
             Toast.makeText(this,R.string.system_msg_retry_connect,Toast.LENGTH_SHORT).show();
-            resetData();
+            resetView();
             retryChannel = true;
             wifiP2pManager.initialize(this,getMainLooper(),this);
         }
@@ -724,6 +789,13 @@ public class MainActivity extends AppCompatActivity implements WifiP2pManager.Ch
             Toast.makeText(this,R.string.system_msg_restart_wifi_p2p,Toast.LENGTH_SHORT).show();
         }
     }
+
+
+
+
+    // 用wifiManager 處理 wifi是否開啟, 這個沒有用到
+    public void setIsWifiP2pEnabled(boolean isWifiP2pEnabled) {
+        this.isWifiP2pEnabled = isWifiP2pEnabled; }
 
 
 }

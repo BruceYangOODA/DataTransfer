@@ -17,7 +17,7 @@ import java.net.Socket;
 import static nor.zero.datatransfer.Constants.*;
 
 public class WifiConnectedThread extends Thread {
-
+    MainActivity mainActivity;
     private Handler handler;
     private final Socket socket;
     private final OutputStream outputStream ;
@@ -25,10 +25,12 @@ public class WifiConnectedThread extends Thread {
     private static boolean isConnected = true;
     private static final int sleepSpan = 30;
     private static int lengthFileTotalCheck = 0;
+    private int currentFileSize = 0;
     static ByteArrayOutputStream byteArrayOutputStream = null;
 
-    public WifiConnectedThread(Handler handler,Socket socket){
-        this.handler = handler;
+    public WifiConnectedThread(MainActivity mainActivity,Socket socket){
+        this.mainActivity =  mainActivity;
+        handler = mainActivity.handler;
         this.socket = socket;
         OutputStream tempOut = null;
         InputStream tempIn = null;
@@ -52,6 +54,7 @@ public class WifiConnectedThread extends Thread {
             try {
                 length = inputStream.read(buffer);
             } catch (IOException e) {
+                cancel();
                 Log.v("aaa","讀取 inputStream 出問題啦");
             }
             // 傳進來的是有效訊息
@@ -71,6 +74,9 @@ public class WifiConnectedThread extends Thread {
                         break;
                     case DATA_TRANS_END:
                         createFile(buffer,length);
+                        break;
+                    case DATA_DISCONNECT:
+                        readDisconnectMessage();
                         break;
                     default:
                         receiveData(buffer,length);
@@ -160,7 +166,6 @@ public class WifiConnectedThread extends Thread {
                 if(length == SENDER_LENGTH){    //buffer裝滿,準備傳給對方機器
                     outputStream.write(buffer);
                     outputStream.flush();
-                    Log.v("aaa","傳送資料: "+length);
                 }
                 else {  ///buffer沒裝滿,fileInputStream 已經讀完
                     byte[] byteSend = new byte[DATA_CHECK_LENGTH + length + CHECK_CODE_LENGTH];
@@ -170,11 +175,19 @@ public class WifiConnectedThread extends Thread {
                             DATA_CHECK_LENGTH + length,CHECK_CODE_LENGTH);
                     outputStream.write(byteSend);
                     outputStream.flush();
-                    Log.v("aaa","傳送資料: "+length);
-                    Log.v("aaa","資料傳送結束");
                 }
+                /*CPU不夠 跑不動
+                // 通知本機目前傳送進度
+                currentFileSize += length;
+                Message msg = handler.obtainMessage(DATA_PROGRESS);
+                Bundle bundle = new Bundle();
+                bundle.putInt(DATA_MSG_FILE_CURRENT_SIZE,currentFileSize);
+                msg.setData(bundle);
+                handler.sendMessage(msg);*/
             }
-        }
+            //傳送完畢 暫存檔案大小 歸零
+            //currentFileSize = 0;
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -192,8 +205,14 @@ public class WifiConnectedThread extends Thread {
                 DATA_CHECK_LENGTH + byteFileName.length,CHECK_CODE_LENGTH);
         outputStream.write(byteSend);
         outputStream.flush();
-        Log.v("aaa","傳送檔名: "+fileName);
-        Log.v("aaa","檔案大小: "+lengthFileTotal);
+         /*CPU不夠 跑不動
+        //通知本機傳送檔案名字與大小
+        Message msg = handler.obtainMessage(DATA_TRANS_NOTE);
+        Bundle bundle = new Bundle();
+        bundle.putString(DATA_MSG_FILE_NAME,fileName);
+        bundle.putInt(DATA_MSG_FILE_SIZE,lengthFileTotalCheck);
+        msg.setData(bundle);
+        handler.sendMessage(msg);*/
     }
     //將32位元的int值放到長度4的byte[]
     private static byte[] intToByteArray(int num){
@@ -216,11 +235,11 @@ public class WifiConnectedThread extends Thread {
         String fileName = new String(byteFileName);
         //設定接收檔案大小的核對值,如果接收完後的檔案等於這個值,才新建檔案
         lengthFileTotalCheck = lengthFileTotal;
-        //通知開始接收檔案
+        //通知開始接收檔案 檔名與大小
         Message msg = handler.obtainMessage(DATA_RECEIVE_START);
         Bundle bundle = new Bundle();
         bundle.putString(DATA_MSG_FILE_NAME,fileName); //檔案名稱
-        bundle.putString(DATA_MSG_FILE_SIZE,""+lengthFileTotalCheck);  //  檔案大小
+        bundle.putInt(DATA_MSG_FILE_SIZE,lengthFileTotal);  //  檔案大小
         msg.setData(bundle);
         handler.sendMessage(msg);
         //準備接收資料的容器
@@ -250,6 +269,12 @@ public class WifiConnectedThread extends Thread {
         if(byteArrayOutputStream != null){
             byteArrayOutputStream.write(buffer,0,length);
             Log.v("aaa","目前檔案大小: "+byteArrayOutputStream.size());
+            //回報目前傳輸進度,調整 progressDialog 進度
+            Message msg = handler.obtainMessage(DATA_PROGRESS);
+            Bundle bundle = new Bundle();
+            bundle.putInt(DATA_MSG_FILE_CURRENT_SIZE,byteArrayOutputStream.size());
+            msg.setData(bundle);
+            handler.sendMessage(msg);
         }
     }
 
@@ -275,18 +300,30 @@ public class WifiConnectedThread extends Thread {
 
         }
     }
+    // 通知遠端裝置 連線中斷
+    void sendDisconnectMessage(){
+        byte[] byteSend = new byte[DATA_CHECK_LENGTH + CHECK_CODE_LENGTH];
+        byte[] byteCheckCode = DATA_DISCONNECT.getBytes();
+        System.arraycopy(byteCheckCode,0,byteSend,DATA_CHECK_LENGTH,CHECK_CODE_LENGTH);
+        try {
+            outputStream.write(byteSend);
+            outputStream.flush();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
 
-
+    }
+    // 收到 遠端裝置 連線中斷,執行連線中斷
+    private synchronized void readDisconnectMessage(){
+        cancel();
+        mainActivity.wifiConnectedThread = null;
+        mainActivity.disconnect();
+    }
     public void cancel(){
         try {
             socket.close();
-            try {
-                this.finalize();
-            } catch (Throwable throwable) {
-                throwable.printStackTrace();
-            }
         } catch (IOException e) {
-            e.printStackTrace();
+            Log.v("aaa","socket 關不起來 ");
         }
     }
 }

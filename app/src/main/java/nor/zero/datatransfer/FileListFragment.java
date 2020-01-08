@@ -89,11 +89,8 @@ public class FileListFragment extends Fragment {
                             .setPositiveButton(getString(R.string.yes), new DialogInterface.OnClickListener() {
                                 @Override
                                 public void onClick(DialogInterface dialog, int which) {
-                                    synchronized (this) {
-                                        dialog.dismiss();
-                                        mainActivity.transfer(FILE_PATH, fileName);
-                                    }
-
+                                    dialog.dismiss();
+                                    mainActivity.transfer(FILE_PATH, fileName);
                                 }
                             })
                             .setNegativeButton(getString(R.string.no),null)

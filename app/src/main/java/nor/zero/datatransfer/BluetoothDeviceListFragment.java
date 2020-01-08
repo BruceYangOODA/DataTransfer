@@ -155,7 +155,7 @@ public class BluetoothDeviceListFragment extends Fragment {
             //啟用BluetoothConnectService 中的執行緒取得資料連結
             MainActivity mainActivity = (MainActivity) getActivity();
             if(mainActivity.bluetoothConnectService == null)
-                mainActivity.bluetoothConnectService = new BluetoothConnectService(mainActivity.handler);
+                mainActivity.bluetoothConnectService = new BluetoothConnectService(mainActivity);
             mainActivity.bluetoothConnectService.connect(device,secure);
         }
     }
@@ -169,9 +169,8 @@ public class BluetoothDeviceListFragment extends Fragment {
                 bluetoothAdapter.cancelDiscovery();
             bluetoothAdapter.startDiscovery();
             // UI進度條 搜尋訊號中
-            if (progressDialog != null && progressDialog.isShowing()) {
+            if (progressDialog != null && progressDialog.isShowing())
                 progressDialog.dismiss();   //先歸零
-            }
             progressDialog = progressDialog.show(getActivity(), getString(R.string.system_msg_cancel_discover),
                     getString(R.string.system_msg_discover_bluetooth_device),
                     true, true, new DialogInterface.OnCancelListener() {

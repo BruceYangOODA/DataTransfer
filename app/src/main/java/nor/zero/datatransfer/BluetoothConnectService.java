@@ -26,6 +26,8 @@ public class BluetoothConnectService {
     AcceptThread insecureAcceptThread;
     LinkingThread linkingThread;
     ConnectedThread connectedThread;
+    MainActivity mainActivity;
+    private int currentFileSize = 0;
     //ByteArrayOutputStream byteArrayOutputStream = null;
    // BluetoothServerSocket bluetoothServerSocket;
     // 曾經連接過的藍芽裝置 與 未曾連接過的裝置
@@ -37,8 +39,9 @@ public class BluetoothConnectService {
     private static final UUID MY_UUID_INSECURE =
             UUID.fromString("8ce255c0-200a-11e0-ac64-0800200c9a66");
 
-    public BluetoothConnectService(Handler handler){
-        this.handler = handler;
+    public BluetoothConnectService(MainActivity mainActivity){
+        this.mainActivity = mainActivity;
+        handler = mainActivity.handler;
         bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         currentState = STATE_NONE;
         updateHandlerUI(getState());
@@ -292,7 +295,7 @@ public class BluetoothConnectService {
                     connectionLost(); //socket 抓不到資料,執行緒歸零,重來
                 }
                 // 傳進來的是有效訊息
-                if(length>DATA_CHECK_LENGTH + CHECK_CODE_LENGTH){
+                if(length>=DATA_CHECK_LENGTH + CHECK_CODE_LENGTH){
                     byte[] byteCheckCode = new byte[CHECK_CODE_LENGTH];
                     System.arraycopy(buffer,length-CHECK_CODE_LENGTH,byteCheckCode,0,CHECK_CODE_LENGTH);
                     String checkCode = new String(byteCheckCode);
@@ -307,6 +310,9 @@ public class BluetoothConnectService {
                             break;
                         case DATA_TRANS_END:
                             createFile(buffer,length);
+                            break;
+                        case DATA_DISCONNECT:
+                            readDisconnectMessage();
                             break;
                         default:
                             receiveData(buffer,length);
@@ -394,7 +400,6 @@ public class BluetoothConnectService {
                         if(length == SENDER_LENGTH){    //buffer裝滿,準備傳給對方機器
                             outputStream.write(buffer);
                             outputStream.flush();
-                            Log.v("aaa","傳送資料: "+length);
                         }
                         else {  ///buffer沒裝滿,fileInputStream 已經讀完
                             byte[] byteSend = new byte[DATA_CHECK_LENGTH + length + CHECK_CODE_LENGTH];
@@ -404,10 +409,18 @@ public class BluetoothConnectService {
                                     DATA_CHECK_LENGTH + length,CHECK_CODE_LENGTH);
                             outputStream.write(byteSend);
                             outputStream.flush();
-                            Log.v("aaa","傳送資料: "+length);
-                            Log.v("aaa","資料傳送結束");
                         }
+                        /*CPU不夠 跑不動
+                        // 通知本機目前傳送進度
+                        currentFileSize += length;
+                        Message msg = handler.obtainMessage(DATA_PROGRESS);
+                        Bundle bundle = new Bundle();
+                        bundle.putInt(DATA_MSG_FILE_CURRENT_SIZE,currentFileSize);
+                        msg.setData(bundle);
+                        handler.sendMessage(msg);*/
                     }
+                    //傳送完畢 暫存檔案大小 歸零
+                    //currentFileSize = 0;
                 }
             } catch (Exception e) {
                 e.printStackTrace();
@@ -426,8 +439,14 @@ public class BluetoothConnectService {
                     DATA_CHECK_LENGTH + byteFileName.length,CHECK_CODE_LENGTH);
             outputStream.write(byteSend);
             outputStream.flush();
-            Log.v("aaa","傳送檔名: "+fileName);
-            Log.v("aaa","檔案大小: "+lengthFileTotal);
+            /*CPU不夠 跑不動
+            //通知本機傳送檔案名字與大小
+            Message msg = handler.obtainMessage(DATA_TRANS_NOTE);
+            Bundle bundle = new Bundle();
+            bundle.putString(DATA_MSG_FILE_NAME,fileName);
+            bundle.putInt(DATA_MSG_FILE_SIZE,lengthFileTotalCheck);
+            msg.setData(bundle);
+            handler.sendMessage(msg);*/
         }
         //將32位元的int值放到長度4的byte[]
         private byte[] intToByteArray(int num){
@@ -450,11 +469,11 @@ public class BluetoothConnectService {
             String fileName = new String(byteFileName);
             //設定接收檔案大小的核對值,如果接收完後的檔案等於這個值,才新建檔案
             lengthFileTotalCheck = lengthFileTotal;
-            //通知開始接收檔案
+            //通知開始接收檔案 檔名與大小
             Message msg = handler.obtainMessage(DATA_RECEIVE_START);
             Bundle bundle = new Bundle();
             bundle.putString(DATA_MSG_FILE_NAME,fileName); //檔案名稱
-            bundle.putString(DATA_MSG_FILE_SIZE,""+lengthFileTotalCheck);  //  檔案大小
+            bundle.putInt(DATA_MSG_FILE_SIZE,lengthFileTotal);  //  檔案大小
             msg.setData(bundle);
             handler.sendMessage(msg);
             //準備接收資料的容器
@@ -484,6 +503,12 @@ public class BluetoothConnectService {
             if(byteArrayOutputStream != null){
                 byteArrayOutputStream.write(buffer,0,length);
                 Log.v("aaa","目前檔案大小: "+byteArrayOutputStream.size());
+                //回報目前傳輸進度,調整 progressDialog 進度
+                Message msg = handler.obtainMessage(DATA_PROGRESS);
+                Bundle bundle = new Bundle();
+                bundle.putInt(DATA_MSG_FILE_CURRENT_SIZE,byteArrayOutputStream.size());
+                msg.setData(bundle);
+                handler.sendMessage(msg);
             }
         }
 
@@ -509,7 +534,24 @@ public class BluetoothConnectService {
 
             }
         }
+        // 通知遠端裝置 連線中斷
+        void sendDisconnectMessage(){
+            byte[] byteSend = new byte[DATA_CHECK_LENGTH + CHECK_CODE_LENGTH];
+            byte[] byteCheckCode = DATA_DISCONNECT.getBytes();
+            System.arraycopy(byteCheckCode,0,byteSend,DATA_CHECK_LENGTH,CHECK_CODE_LENGTH);
+            try {
+                outputStream.write(byteSend);
+                outputStream.flush();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
 
+        }
+        // 收到 遠端裝置 連線中斷,執行連線中斷
+        private void readDisconnectMessage(){
+            cancel();
+            mainActivity.bluetoothConnectService = null;
+        }
         public void cancel(){
             try{
                 socket.close();
